@@ -1,4 +1,9 @@
-typedef int128_t cx_id_t;        // global: CX ID, a 128b GUID
+#include <stdint.h>
+
+#ifndef CI_H
+#define CI_H
+
+typedef int64_t cx_id_t;         // global: CX ID, a 128b GUID
 typedef int32_t cxu_id_t;        // system: CXU index
 typedef int32_t state_id_t;      // system: state index
 typedef int32_t cx_sel_t;        // hart: CX selector (value or index)
@@ -17,4 +22,6 @@ static void free_sel(cx_sel_t);
 
 // CX multiplexing
 static cx_sel_t set_cur_sel(cx_sel_t); // return prev selector 
+/* May compile to a csrw of cs_index (S mode), or mcx_selector (M mode) */
 
+#endif
