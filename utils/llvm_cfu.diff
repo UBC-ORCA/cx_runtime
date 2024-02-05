@@ -1,0 +1,110 @@
+diff --git a/clang/include/clang/Basic/BuiltinsRISCV.def b/clang/include/clang/Basic/BuiltinsRISCV.def
+index 1528b18c82ea..d27f2f637b9e 100644
+--- a/clang/include/clang/Basic/BuiltinsRISCV.def
++++ b/clang/include/clang/Basic/BuiltinsRISCV.def
+@@ -89,5 +89,10 @@ TARGET_BUILTIN(__builtin_riscv_sm3p1, "UiUi", "nc", "zksh")
+ TARGET_BUILTIN(__builtin_riscv_ntl_load, "v.", "t", "zihintntl")
+ TARGET_BUILTIN(__builtin_riscv_ntl_store, "v.", "t", "zihintntl")
+ 
++/* CFU */
++TARGET_BUILTIN(__builtin_riscv_cfu_reg, "UiUiUiIUi", "nc", "32bit")
++TARGET_BUILTIN(__builtin_riscv_cfu_imm, "UiUiIUi", "nc", "32bit")
++/* CFU End */
++ 
+ #undef BUILTIN
+ #undef TARGET_BUILTIN
+diff --git a/llvm/include/llvm/IR/IntrinsicsRISCV.td b/llvm/include/llvm/IR/IntrinsicsRISCV.td
+index a391bc53cdb0..4c94ff913a98 100644
+--- a/llvm/include/llvm/IR/IntrinsicsRISCV.td
++++ b/llvm/include/llvm/IR/IntrinsicsRISCV.td
+@@ -1738,6 +1738,20 @@ class ScalarCryptoGprGprIntrinsic32
+                             [llvm_i32_ty, llvm_i32_ty],
+                             [IntrNoMem, IntrSpeculatable]>;
+ 
++/* CFU */
++class CFUImmGprGprIntrinsic
++    : DefaultAttrsIntrinsic<[llvm_i32_ty],
++                            [llvm_i32_ty, llvm_i32_ty, llvm_i32_ty],
++                            [IntrNoMem, IntrSpeculatable, ImmArg<ArgIndex<2>>]>;
++
++class CFUImmImmGprIntrinsic
++    : DefaultAttrsIntrinsic<[llvm_i32_ty],
++                            [llvm_i32_ty, llvm_i32_ty, llvm_i32_ty],
++                            [IntrNoMem, IntrSpeculatable, ImmArg<ArgIndex<2>>,
++                             ImmArg<ArgIndex<3>>]>;
++
++/* CFU */
++
+ class ScalarCryptoGprGprIntrinsic64
+     : DefaultAttrsIntrinsic<[llvm_i64_ty],
+                             [llvm_i64_ty, llvm_i64_ty],
+@@ -1822,6 +1836,14 @@ def int_riscv_sm4ed      : ScalarCryptoByteSelect32;
+ // Zksh
+ def int_riscv_sm3p0      : ScalarCryptoGprIntrinsic32;
+ def int_riscv_sm3p1      : ScalarCryptoGprIntrinsic32;
++
++/* CFU */
++def int_riscv_cfu_imm : CFUImmImmGprIntrinsic,
++                            ClangBuiltin<"__builtin_riscv_cfu_imm">;
++def int_riscv_cfu_reg       : CFUImmGprGprIntrinsic,
++                              ClangBuiltin<"__builtin_riscv_cfu_reg">;
++/* End CFU */
++
+ } // TargetPrefix = "riscv"
+ 
+ //===----------------------------------------------------------------------===//
+diff --git a/llvm/lib/Target/CSKY/AsmParser/CSKYAsmParser.cpp b/llvm/lib/Target/CSKY/AsmParser/CSKYAsmParser.cpp
+index 4711e58bbed6..29ad3d0300ed 100644
+--- a/llvm/lib/Target/CSKY/AsmParser/CSKYAsmParser.cpp
++++ b/llvm/lib/Target/CSKY/AsmParser/CSKYAsmParser.cpp
+@@ -273,6 +273,7 @@ public:
+   bool isUImm6() const { return isUImm<6>(); }
+   bool isUImm7() const { return isUImm<7>(); }
+   bool isUImm8() const { return isUImm<8>(); }
++  bool isUImm10() const { return isUImm<10>(); }
+   bool isUImm12() const { return isUImm<12>(); }
+   bool isUImm16() const { return isUImm<16>(); }
+   bool isUImm20() const { return isUImm<20>(); }
+diff --git a/llvm/lib/Target/RISCV/AsmParser/RISCVAsmParser.cpp b/llvm/lib/Target/RISCV/AsmParser/RISCVAsmParser.cpp
+index f3ea0f597eec..a6a820de6154 100644
+--- a/llvm/lib/Target/RISCV/AsmParser/RISCVAsmParser.cpp
++++ b/llvm/lib/Target/RISCV/AsmParser/RISCVAsmParser.cpp
+@@ -672,6 +672,7 @@ public:
+   bool isUImm6() const { return IsUImm<6>(); }
+   bool isUImm7() const { return IsUImm<7>(); }
+   bool isUImm8() const { return IsUImm<8>(); }
++  bool isUImm10() const { return IsUImm<10>(); }
+   bool isUImm20() const { return IsUImm<20>(); }
+ 
+   bool isUImm8GE32() const {
+diff --git a/llvm/lib/Target/RISCV/MCTargetDesc/RISCVBaseInfo.h b/llvm/lib/Target/RISCV/MCTargetDesc/RISCVBaseInfo.h
+index 30ed36525e29..a7f73e538103 100644
+--- a/llvm/lib/Target/RISCV/MCTargetDesc/RISCVBaseInfo.h
++++ b/llvm/lib/Target/RISCV/MCTargetDesc/RISCVBaseInfo.h
+@@ -304,6 +304,11 @@ enum OperandType : unsigned {
+   OPERAND_UIMMLOG2XLEN,
+   OPERAND_UIMMLOG2XLEN_NONZERO,
+   OPERAND_CLUI_IMM,
++  /* CFU */
++  OPERAND_CF_ID, 
++  OPERAND_CFU_IMM,
++  OPERAND_CF_ID_4,
++  /* End CFU */
+   OPERAND_VTYPEI10,
+   OPERAND_VTYPEI11,
+   OPERAND_RVKRNUM,
+diff --git a/llvm/lib/Target/RISCV/RISCVInstrInfo.td b/llvm/lib/Target/RISCV/RISCVInstrInfo.td
+index edc08187d8f7..006a0a5625ec 100644
+--- a/llvm/lib/Target/RISCV/RISCVInstrInfo.td
++++ b/llvm/lib/Target/RISCV/RISCVInstrInfo.td
+@@ -2119,6 +2119,10 @@ include "RISCVInstrInfoZicond.td"
+ include "RISCVInstrInfoC.td"
+ include "RISCVInstrInfoZc.td"
+ 
++/* CFU */
++include "RISCVInstrInfoCFU.td"
++/* End CFU */
++
+ //===----------------------------------------------------------------------===//
+ // Vendor extensions
+ //===----------------------------------------------------------------------===//
