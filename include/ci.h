@@ -10,17 +10,21 @@ typedef int32_t cx_sel_t;        // hart: CX selector (value or index)
 typedef int32_t cx_share_t;      // context sharing permissions
 typedef int32_t cxu_guid_t;      // cxu package global name
 
+extern const cx_guid_t CX_GUID_A;
+extern const cx_guid_t CX_GUID_B;
+
+void init_cfu_runtime();
 
 int32_t cfu_reg(int32_t, int32_t, int32_t);
 
 // standard cx runtime calls
-static cx_sel_t cx_open(cx_guid_t, cx_share_t);
+cx_sel_t cx_open(cx_guid_t, cx_share_t);
 
-static cx_sel_t cx_select(cx_sel_t);
+cx_sel_t cx_select(cx_sel_t);
 
-static void cx_close(cx_sel_t);
+void cx_close(cx_sel_t);
 
 // Bundled function
-static void cx_deselect_and_close(cx_sel_t);
+void cx_deselect_and_close(cx_sel_t);
 
 #endif

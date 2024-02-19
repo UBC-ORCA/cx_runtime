@@ -47,7 +47,7 @@ queue_t* make_queue()
 
     // This is important, see the enqueue
     queue->rear = CX_TABLE_SIZE - 1;
-    for(int32_t i = 0; i < CX_TABLE_SIZE - 1; i++) {
+    for(int32_t i = 0; i < CX_TABLE_SIZE; i++) {
         enqueue(queue, i);
     }
     return queue;
