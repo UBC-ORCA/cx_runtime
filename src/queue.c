@@ -1,7 +1,7 @@
 #include <stdint.h>
 #include <stdlib.h>
 
-#include "queue.h"
+#include "../include/queue.h"
 
 static int32_t isFull(queue_t* queue)
 {
