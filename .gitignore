@@ -50,3 +50,7 @@ modules.order
 Module.symvers
 Mkfile.old
 dkms.conf
+
+# Build dirs
+utils/riscv-gnu-toolchain
+utils/riscv

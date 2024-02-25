@@ -1,13 +1,13 @@
 diff --git a/gas/config/tc-riscv.c b/gas/config/tc-riscv.c
-index 297bb9b2a81..ae7ca7b24f3 100644
+index a4161420128..24547252d69 100644
 --- a/gas/config/tc-riscv.c
 +++ b/gas/config/tc-riscv.c
-@@ -1349,6 +1349,18 @@ validate_riscv_insn (const struct riscv_opcode *opc, int length)
+@@ -1366,6 +1366,18 @@ validate_riscv_insn (const struct riscv_opcode *opc, int length)
  	      goto unknown_validate_operand;
  	    }
  	  break; /* end RVV */
 +
-+  case 'G': /* CFU */ // FIXME 
++  case 'G': /* CFU */ // FIXME
 +	  switch (*++oparg)
 +	    {
 +	    case 'x': used_bits |= ENCODE_CFU_RTYPE_CFID (-1U); break;
@@ -21,14 +21,14 @@ index 297bb9b2a81..ae7ca7b24f3 100644
  	case ',': break;
  	case '(': break;
  	case ')': break;
-@@ -3117,7 +3129,52 @@ riscv_ip (char *str, struct riscv_cl_insn *ip, expressionS *imm_expr,
+@@ -3190,7 +3202,52 @@ riscv_ip (char *str, struct riscv_cl_insn *ip, expressionS *imm_expr,
  		  goto unknown_riscv_ip_operand;
  		}
  	      break; /* end RVV */
-+    case 'G': /* CFU */ // FIXME 
++    case 'G': /* CFU */ // FIXME
 +      switch (*++oparg)
 +		{
-+		case 'x': 
++		case 'x':
 +		  my_getExpression (imm_expr, asarg);
 +		  check_absolute_expr (ip, imm_expr, FALSE);
 +		  if (imm_expr->X_add_number < 0
@@ -40,8 +40,8 @@ index 297bb9b2a81..ae7ca7b24f3 100644
 +		  imm_expr->X_op = O_absent;
 +		  asarg = expr_parse_end;
 +		  continue;
- 
-+		case 'y': 
++
++		case 'y':
 +		  my_getExpression (imm_expr, asarg);
 +		  check_absolute_expr (ip, imm_expr, FALSE);
 +		  if (imm_expr->X_add_number < 0
@@ -53,8 +53,8 @@ index 297bb9b2a81..ae7ca7b24f3 100644
 +		  imm_expr->X_op = O_absent;
 +		  asarg = expr_parse_end;
 +		  continue;
-+
-+		case 'j': 
+ 
++		case 'j':
 +		  my_getExpression (imm_expr, asarg);
 +		  check_absolute_expr (ip, imm_expr, FALSE);
 +		  if (imm_expr->X_add_number > 127
@@ -75,7 +75,7 @@ index 297bb9b2a81..ae7ca7b24f3 100644
  	      if (*asarg++ == *oparg)
  		continue;
 diff --git a/include/opcode/riscv-opc.h b/include/opcode/riscv-opc.h
-index 90f44153750..1414f69b994 100644
+index e77b49a6298..a76ce045f70 100644
 --- a/include/opcode/riscv-opc.h
 +++ b/include/opcode/riscv-opc.h
 @@ -21,6 +21,14 @@
@@ -93,7 +93,7 @@ index 90f44153750..1414f69b994 100644
  #define MATCH_SLLI_RV32 0x1013
  #define MASK_SLLI_RV32  0xfe00707f
  #define MATCH_SRLI_RV32 0x5013
-@@ -2948,6 +2956,10 @@
+@@ -3475,6 +3483,10 @@
  #define CSR_VLENB 0xc22
  #endif /* RISCV_ENCODING_H */
  #ifdef DECLARE_INSN
@@ -105,13 +105,13 @@ index 90f44153750..1414f69b994 100644
  DECLARE_INSN(srli_rv32, MATCH_SRLI_RV32, MASK_SRLI_RV32)
  DECLARE_INSN(srai_rv32, MATCH_SRAI_RV32, MASK_SRAI_RV32)
 diff --git a/include/opcode/riscv.h b/include/opcode/riscv.h
-index d859f44fc92..3a1ed2564e6 100644
+index adea7dbc794..7d3662a76d7 100644
 --- a/include/opcode/riscv.h
 +++ b/include/opcode/riscv.h
-@@ -109,6 +109,15 @@ static inline unsigned int riscv_insn_length (insn_t insn)
+@@ -108,6 +108,14 @@ static inline unsigned int riscv_insn_length (insn_t insn)
+   (RV_X(x, 20, 10))
  #define EXTRACT_RVV_VC_IMM(x) \
    (RV_X(x, 20, 11))
- 
 +/* CFU */
 +#define EXTRACT_CFU_RTYPE_CFID(x) \
 +  (RV_X(x, 12, 3) | (RV_X(x, 25, 7) << 3))
@@ -120,14 +120,13 @@ index d859f44fc92..3a1ed2564e6 100644
 +#define EXTRACT_CFU_ITYPE_IMM(x) \
 +  (RV_X(x, 24, 8) | (RV_IMM_SIGN(x) << 8))
 +/* end CFU */
-+
- #define ENCODE_ITYPE_IMM(x) \
-   (RV_X(x, 0, 12) << 20)
- #define ENCODE_STYPE_IMM(x) \
-@@ -156,6 +165,15 @@ static inline unsigned int riscv_insn_length (insn_t insn)
+ #define EXTRACT_ZCB_BYTE_UIMM(x) \
+   (RV_X(x, 6, 1) | (RV_X(x, 5, 1) << 1))
+ #define EXTRACT_ZCB_HALFWORD_UIMM(x) \
+@@ -164,6 +172,14 @@ static inline unsigned int riscv_insn_length (insn_t insn)
+   (RV_X(x, 0, 11) << 20)
  #define ENCODE_RVV_VI_UIMM6(x) \
    (RV_X(x, 0, 5) << 15 | RV_X(x, 5, 1) << 26)
- 
 +/* CFU */
 +#define ENCODE_CFU_RTYPE_CFID(x) \
 +  ((RV_X(x, 0, 3) << 12) | (RV_X(x, 3, 7) << 25))
@@ -136,12 +135,11 @@ index d859f44fc92..3a1ed2564e6 100644
 +#define ENCODE_CFU_ITYPE_IMM(x) \
 +  (RV_X(x, 0, 8) << 24)
 +/* end CFU */
-+
- #define VALID_ITYPE_IMM(x) (EXTRACT_ITYPE_IMM(ENCODE_ITYPE_IMM(x)) == (x))
- #define VALID_STYPE_IMM(x) (EXTRACT_STYPE_IMM(ENCODE_STYPE_IMM(x)) == (x))
- #define VALID_BTYPE_IMM(x) (EXTRACT_BTYPE_IMM(ENCODE_BTYPE_IMM(x)) == (x))
+ #define ENCODE_ZCB_BYTE_UIMM(x) \
+   ((RV_X(x, 0, 1) << 6) | (RV_X(x, 1, 1) << 5))
+ #define ENCODE_ZCB_HALFWORD_UIMM(x) \
 diff --git a/opcodes/riscv-dis.c b/opcodes/riscv-dis.c
-index 827d9b67437..3fac37debad 100644
+index 3019b9a5130..167f3561fbc 100644
 --- a/opcodes/riscv-dis.c
 +++ b/opcodes/riscv-dis.c
 @@ -415,6 +415,22 @@ print_insn_args (const char *oparg, insn_t l, bfd_vma pc, disassemble_info *info
@@ -168,10 +166,10 @@ index 827d9b67437..3fac37debad 100644
  	case '(':
  	case ')':
 diff --git a/opcodes/riscv-opc.c b/opcodes/riscv-opc.c
-index 533e3f4a079..d1d9332d948 100644
+index fdd05ac75dc..5d077c5ea7d 100644
 --- a/opcodes/riscv-opc.c
 +++ b/opcodes/riscv-opc.c
-@@ -340,6 +340,8 @@ const struct riscv_opcode riscv_opcodes[] =
+@@ -366,6 +366,8 @@ const struct riscv_opcode riscv_opcodes[] =
  {"pause",       0, INSN_CLASS_ZIHINTPAUSE, "", MATCH_PAUSE, MASK_PAUSE, match_opcode, 0 },
  
  /* Basic RVI instructions and aliases.  */

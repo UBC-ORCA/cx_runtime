@@ -1,8 +1,8 @@
 .PHONY: clean all temp 
 
 # CC = ${RISCV}/llvm/build-linux/bin/clang
-CC = ${RISCV}/build-linux/bin/riscv32-unknown-elf-gcc
-AR = ${RISCV}/build-linux/bin/riscv32-unknown-elf-ar
+CC = ${RISCV}/riscv/bin/riscv32-unknown-elf-gcc
+AR = ${RISCV}/riscv/bin/riscv32-unknown-elf-ar
 
 CCX86 = gcc
 ARX86 = ar
@@ -58,7 +58,8 @@ test: examples/test.c
 
 ###########   Running on different emulators   ###########
 qemu: temp
-	${RISCV}/riscv-gnu-toolchain/qemu/build/qemu-riscv32 -L ${RISCV}/sysroot ./$^
+	${RISCV}/riscv-gnu-toolchain/qemu/build/qemu-riscv32 -L ./utils/riscv/bin/ ./$^
+
 
 ### TODO: Modify spike to execute cx instructions
 spike: temp
