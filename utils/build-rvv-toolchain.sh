@@ -112,13 +112,13 @@ fi
 mkdir build
 pushd build
 
-export LIBRARY_PATH=$LIBRARY_PATH:$RISCV/../build-qemu/lib
-export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$RISCV/../build-qemu/lib
+export LIBRARY_PATH=$RISCV/../build-qemu/lib
+export LD_LIBRARY_PATH=$RISCV/../build-qemu/lib
 
 ../configure --target-list=riscv64-linux-user,riscv32-linux-user,riscv64-softmmu,riscv32-softmmu
 
 if [ $? -ne 0 ]; then
-	echo "issue with configuring qemu"
+	echo "issue with configuring qemu - possibly due to not having a python venv active"
     exit 1
 fi
 

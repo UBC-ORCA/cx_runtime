@@ -3,6 +3,7 @@
 
 #include "../../include/cx-qemu/mcfu_select.h"
 #include "../../include/cx-qemu/addsub_func.h"
+#include "../../include/cx-qemu/muldiv_func.h"
 
 typedef int64_t cx_guid_t;       // global: CX ID, a 128b GUID
 typedef int32_t state_id_t;      // system: state index
@@ -14,11 +15,10 @@ typedef struct {
                          // list of available state_ids
 } cx_map_t;
 
-const cx_guid_t CX_GUID_B = 20;
 
 cx_map_t static cx_map[2] = {
     {CX_GUID_ADDSUB, 0},
-    {CX_GUID_B, 1}
+    {CX_GUID_MULDIV, 1}
 };
 
 int32_t mcfu_select_func(uint32_t mcfu_selector, int32_t cf_id, int32_t rs1, int32_t rs2) 
@@ -30,8 +30,9 @@ int32_t mcfu_select_func(uint32_t mcfu_selector, int32_t cf_id, int32_t rs1, int
         printf("Executing cx_guid addsub instructions\n");
         result = addsub_sel(cf_id, rs1, rs2);
     } 
-    else if (cx_guid == CX_GUID_B) {
+    else if (cx_guid == CX_GUID_MULDIV) {
         printf("Executing cx_guid B instructions\n");
+        result = muldiv_sel(cf_id, rs1, rs2);
     } 
     else {
         printf("I'm sad :(\n");

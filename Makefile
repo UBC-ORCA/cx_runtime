@@ -19,9 +19,10 @@ QEMU-SRC := $(SRC)/cx-qemu
 
 
 cx_objects := $(BDIR)/ci.o $(BDIR)/queue.o 
-qemu_objects := $(QEMU-BDIR)/mcfu_select.o $(QEMU-BDIR)/addsub_func.o
+qemu_objects := $(QEMU-BDIR)/mcfu_select.o $(QEMU-BDIR)/addsub_func.o $(QEMU-BDIR)/muldiv_func.o
+cx_libraries := $(BDIR)/addsub.o $(BDIR)/muldiv.o
 
-all: $(QEMU-LDIR)/libmcfu_selector.so $(LDIR)/libci.so $(BDIR)/addsub.o
+all: $(QEMU-LDIR)/libmcfu_selector.so $(LDIR)/libci.so $(cx_libraries)
 
 
 ###########   Qemu functionality   ###########
@@ -50,10 +51,13 @@ $(LDIR):
 $(BDIR)/addsub.o: $(SRC)/addsub.c $(IDIR)/addsub.h
 	$(CC) -c $< -o $@
 
+$(BDIR)/muldiv.o: $(SRC)/muldiv.c $(IDIR)/muldiv.h
+	$(CC) -c $< -o $@
+
 
 ###########   Building Executeable   ###########
 test: examples/test.c
-	$(CC) -march=rv32imav -mabi=ilp32 $< $(BDIR)/addsub.o -L$(LDIR) -lci -O2 -o temp
+	$(CC) -march=rv32imav -mabi=ilp32 $< $(cx_libraries) -L$(LDIR) -lci -O2 -o temp
 
 
 ###########   Running on different emulators   ###########
