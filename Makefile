@@ -21,7 +21,7 @@ QEMU-SRC := $(SRC)/cx-qemu
 cx_objects := $(BDIR)/ci.o $(BDIR)/queue.o 
 qemu_objects := $(QEMU-BDIR)/mcfu_select.o $(QEMU-BDIR)/addsub_func.o
 
-all: $(LDIR)/libci.so $(QEMU-LDIR)/libmcfu_selector.so $(BDIR)/addsub.o
+all: $(QEMU-LDIR)/libmcfu_selector.so $(LDIR)/libci.so $(BDIR)/addsub.o
 
 
 ###########   Qemu functionality   ###########
