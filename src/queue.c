@@ -39,16 +39,29 @@ int32_t front(queue_t* queue)
     return queue->arr[queue->front];
 }
 
-queue_t* make_queue()
+queue_t* make_queue(int32_t capacity)
 {
     queue_t* queue = (queue_t *) malloc(sizeof(queue_t));
-    queue->capacity = CX_TABLE_SIZE;
+
+    if (queue == NULL) {
+        return NULL;
+    }
+
+    queue->arr = malloc(sizeof(int32_t) * capacity);
+
+    if (queue->arr == NULL) {
+        free(queue);
+        return NULL;
+    }
+
+    queue->capacity = capacity;
     queue->front = queue->size = 0;
 
     // This is important, see the enqueue
-    queue->rear = CX_TABLE_SIZE - 1;
-    for(int32_t i = 0; i < CX_TABLE_SIZE; i++) {
+    queue->rear = capacity - 1;
+    for (int32_t i = 0; i < capacity; i++) {
         enqueue(queue, i);
     }
+
     return queue;
 }
