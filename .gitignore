@@ -35,6 +35,7 @@
 *.i*86
 *.x86_64
 *.hex
+temp
 
 # Debug files
 *.dSYM/
@@ -54,3 +55,4 @@ dkms.conf
 # Build dirs
 utils/riscv-gnu-toolchain
 utils/riscv
+
