@@ -18,16 +18,16 @@ QEMU-IDIR := $(IDIR)/cx-qemu
 QEMU-SRC := $(SRC)/cx-qemu
 
 
-cx_objects := $(BDIR)/ci.o $(BDIR)/queue.o 
-qemu_objects := $(QEMU-BDIR)/mcfu_select.o $(QEMU-BDIR)/addsub_func.o $(QEMU-BDIR)/muldiv_func.o
+cx_objects := $(BDIR)/ci.o $(BDIR)/queue.o $(BDIR)/parser.o
+qemu_objects := $(QEMU-BDIR)/parser.o $(QEMU-BDIR)/mcfu_select.o $(QEMU-BDIR)/addsub_func.o $(QEMU-BDIR)/muldiv_func.o
 cx_libraries := $(BDIR)/addsub.o $(BDIR)/muldiv.o
 
 all: $(QEMU-LDIR)/libmcfu_selector.so $(LDIR)/libci.so $(cx_libraries)
 
 
 ###########   Qemu functionality   ###########
-$(QEMU-LDIR)/libmcfu_selector.so: $(qemu_objects) | $(QEMU-LDIR)
-	$(ARX86) -rcs $@ $^
+$(QEMU-LDIR)/libmcfu_selector.so: $(qemu_objects) $(QEMU-BDIR)/parser.o | $(QEMU-LDIR)
+	$(ARX86) -rcs $@ $^ $(QEMU-BDIR)/parser.o
 
 $(QEMU-BDIR)/%.o : $(QEMU-SRC)/%.c | $(QEMU-LDIR)
 	$(CCX86) -c $< -o $@
@@ -54,6 +54,13 @@ $(BDIR)/addsub.o: $(SRC)/addsub.c $(IDIR)/addsub.h
 $(BDIR)/muldiv.o: $(SRC)/muldiv.c $(IDIR)/muldiv.h
 	$(CC) -c $< -o $@
 
+
+###########   Parser   ###########
+$(QEMU-BDIR)/parser.o: $(SRC)/parser.c $(IDIR)/parser.h | $(QEMU-LDIR)
+	$(CCX86) -c $< -o $@
+
+$(BDIR)/parser.o: $(SRC)/parser.c $(IDIR)/parser.h | $(LDIR)
+	$(CC) -c $< -o $@
 
 ###########   Building Executeable   ###########
 test: examples/test.c

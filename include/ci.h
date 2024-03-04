@@ -15,9 +15,6 @@ typedef int32_t cx_sel_t;        // hart: CX selector (value (No CX Table) or in
 
 typedef int32_t cxu_state_context_status_t; // per state    
 
-extern const cx_guid_t CX_GUID_ADDSUB;
-extern const cx_guid_t CX_GUID_MULDIV;
-
 #define CFU_REG(rd, cf_id, rs1, rs2) \
     asm volatile("      cfu_reg " #cf_id ",%0,%1,%2;\n" \
                  : "=r" (rd)             \
