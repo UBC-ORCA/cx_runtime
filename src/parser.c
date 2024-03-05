@@ -7,11 +7,11 @@
 
 #include "../include/parser.h"
 
-static cx_config_info_t* gen_cx_config_info_t(cx_config_t *cx_config, int32_t num_cxs)
+static cx_config_info_t gen_cx_config_info_t(cx_config_t *cx_config, int32_t num_cxs)
 {
-  cx_config_info_t *cx_config_info = (cx_config_info_t *) malloc(sizeof(cx_config_info_t));
-  cx_config_info->cx_config = cx_config;
-  cx_config_info->num_cxs = num_cxs;
+  cx_config_info_t cx_config_info;
+  cx_config_info.cx_config = cx_config;
+  cx_config_info.num_cxs = num_cxs;
 
   return cx_config_info;
 }
@@ -59,14 +59,14 @@ static cx_config_t* readConf(char* filename) {
 
 // TODO: there should be another (better) way to do this - note that 
 //       dirnet is not supported with the riscv toolchain
-cx_config_info_t* read_files(char *path) 
+cx_config_info_t read_files(char *path) 
 {
   // Unfortunately, qemu can't access host files. This means that the
   // structs need to be defined in code, or that we shift to using spike
   // at some point down the road.
 
   int32_t num_cxs = 2;
-  cx_config_t cx_config[] = {
+  cx_config_t static cx_config[] = {
     {.cx_guid = CX_GUID_ADDSUB, .num_states = 3},
     {.cx_guid = CX_GUID_MULDIV, .num_states = 2}
   };
@@ -86,7 +86,7 @@ cx_config_info_t* read_files(char *path)
   // }
   // printf("in parser\n");
   
-  cx_config_info_t *cx_config_info = gen_cx_config_info_t(cx_config, num_cxs);
+  cx_config_info_t cx_config_info = gen_cx_config_info_t(cx_config, num_cxs);
 
   return cx_config_info;
 }

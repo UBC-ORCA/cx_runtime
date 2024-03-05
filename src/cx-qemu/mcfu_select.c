@@ -13,15 +13,13 @@ typedef int32_t cx_id_t;
 cx_config_info_t static cx_config_info;
 
 void init_cx_map() {
-    cx_config_info = *read_files("");
+    cx_config_info = read_files("");
 }
 
 int32_t mcfu_select_func(uint32_t mcfu_selector, int32_t cf_id, int32_t rs1, int32_t rs2) 
 {
     cx_id_t cx_id = mcfu_selector & ~(~0 << 8);
     // cx_id_t cx_id = mcfu_selector & 0xff;
-    // printf("mcfu_guid: %d\n", cx_config_info.cx_config[0].cx_guid);
-    // printf("mcfu_guid: %d\n", cx_config_info.cx_config[1].cx_guid);
 
     // This should get the pointer table base address. Should get the function
     // pointer directly.
@@ -36,11 +34,11 @@ int32_t mcfu_select_func(uint32_t mcfu_selector, int32_t cf_id, int32_t rs1, int
         // 1 map that looks up the cf_id for a given cx_guid
         printf("Executing cx_guid addsub instructions\n");
         result = addsub_sel(cf_id, rs1, rs2);
-    } 
+    }
     else if (cx_guid == CX_GUID_MULDIV) {
-        printf("Executing cx_guid B instructions\n");
+        printf("Executing cx_guid muldiv instructions\n");
         result = muldiv_sel(cf_id, rs1, rs2);
-    } 
+    }
     else {
         printf("I'm sad :(\n");
     }

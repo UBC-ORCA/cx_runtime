@@ -16,6 +16,6 @@ typedef struct {
   int32_t num_cxs;
 } cx_config_info_t;
 
-cx_config_info_t* read_files(char *path);
+cx_config_info_t read_files(char *path);
 
 #endif

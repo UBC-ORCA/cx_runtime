@@ -138,19 +138,19 @@ typedef struct {
     int32_t    num_state_ids;
 } cx_map_t;
 
-static cx_map_t cx_map[2];
+static cx_map_t *cx_map;
 
 void init_cx_map() 
 {
-    cx_config_info_t *cx_config_info = read_files("");
+    cx_config_info_t cx_config_info = read_files("");
 
-    // cx_map = (cx_map_t *) malloc(sizeof(cx_map_t) * cx_config_info->num_cxs);
+    cx_map = (cx_map_t *) malloc(sizeof(cx_map_t) * cx_config_info.num_cxs);
 
-    for (int32_t i = 0; i < cx_config_info->num_cxs; i++) {
-        cx_map[i].cx_guid = cx_config_info->cx_config[i].cx_guid;
-        cx_map[i].avail_state_ids = make_queue(cx_config_info->cx_config[i].num_states);
+    for (int32_t i = 0; i < cx_config_info.num_cxs; i++) {
+        cx_map[i].cx_guid = cx_config_info.cx_config[i].cx_guid;
+        cx_map[i].avail_state_ids = make_queue(cx_config_info.cx_config[i].num_states);
         cx_map[i].counter = 0;
-        cx_map[i].num_state_ids = cx_config_info->cx_config[i].num_states;
+        cx_map[i].num_state_ids = cx_config_info.cx_config[i].num_states;
     }
 
     return;
@@ -158,6 +158,11 @@ void init_cx_map()
 
 void init_cfu_runtime() {
     avail_table_indices = make_queue(CX_SEL_TABLE_NUM_ENTRIES);
+
+    // the first slot in the table is never available - reserved
+    // for legacy cx_indicies
+    dequeue(avail_table_indices);
+
     init_cx_map();
     return;
 }
@@ -222,6 +227,7 @@ cx_sel_t cx_open(cx_guid_t cx_guid, cx_share_t cx_share)
     #else
 
     cx_sel_t cx_index = dequeue(avail_table_indices);
+
     if (cx_index < 0) {
         printf("Error: No available cx_index_table slots (1024 in use)\n");
         exit(1);
