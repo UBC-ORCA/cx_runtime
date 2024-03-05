@@ -2,7 +2,7 @@
 
 #include "../include/muldiv.h"
 
-int32_t mul(int32_t a, int32_t b) 
+__CX__ int32_t mul( int32_t a, int32_t b ) 
 {
     int32_t result = 0;
     asm volatile(
@@ -14,7 +14,7 @@ int32_t mul(int32_t a, int32_t b)
     return result;
 }
 
-int32_t div_(int32_t a, int32_t b) 
+__CX__ int32_t div_( int32_t a, int32_t b ) 
 {
     int32_t result = 0;
     asm volatile(
