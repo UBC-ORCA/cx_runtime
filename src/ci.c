@@ -128,6 +128,7 @@ typedef struct {
     queue_t    *avail_state_ids;
     int32_t    counter; // open guid = increment, close guid = decrement
     int32_t    num_state_ids;
+    int32_t    cx_sel_index; // keeps track of cx_table_index for stateless cx's
 } cx_map_t;
 
 static cx_map_t *cx_map;
@@ -143,6 +144,7 @@ void init_cx_map()
         cx_map[i].avail_state_ids = make_queue(cx_config_info.cx_config[i].num_states);
         cx_map[i].counter = 0;
         cx_map[i].num_state_ids = cx_config_info.cx_config[i].num_states;
+        cx_map[i].cx_sel_index = -1;
     }
 
     return;
@@ -178,7 +180,7 @@ cx_sel_t cx_select(cx_sel_t cx_sel) {
 
 cx_sel_t cx_open(cx_guid_t cx_guid, cx_share_t cx_share) 
 {
-    cx_sel_t cx_sel = 0x0;
+    cx_sel_t cx_sel = 0;
     // Should check the CPU to see if the cx_selector_table
     // is available
     #ifdef M_MODE
@@ -187,37 +189,42 @@ cx_sel_t cx_open(cx_guid_t cx_guid, cx_share_t cx_share)
 
     #else
 
-    for (int32_t i = 0; i < NUM_CX_IDS; i++) {
-        if (cx_map[i].cx_guid == cx_guid) {
-            if (cx_map[i].num_state_ids == 0) {
-                // TODO: make sure this is right
-                // Checking if cx_sel_table already contains stateless cx_id
-                for (int32_t j = 1; j < CX_SEL_TABLE_NUM_ENTRIES; j++) {
-                    cx_id_t cx_id = cx_sel_table[j] & 0xFF;
-                    if (cx_id == i) {
-                        return j;
-                    }
-                }
-                cx_sel = gen_cx_sel(i, 0, MCX_VERSION);
-            } else {
-                state_id_t state_id = dequeue(cx_map[i].avail_state_ids);
-                if (state_id < 0) {
-                    printf("No available states for cx_guid %d\n", cx_map[i].cx_guid);
-                    return -1; // number returned will relate to error 
-                }
-                cx_sel = gen_cx_sel(i, state_id, MCX_VERSION);
-            }
-            cx_map[i].counter++; // this could error out if overflowed
-            break;
-        }
-    }
-
-    cx_sel_t cx_index = dequeue(avail_table_indices);
+    // Check to see if there is a free cx_sel_table index
+    cx_sel_t cx_index = front(avail_table_indices);
 
     if (cx_index < 0) {
         printf("Error: No available cx_index_table slots (1024 in use)\n");
-        return -1; // number returned will relate to error 
+        return cx_index; // number returned will relate to error
     }
+
+    int32_t cx_map_index = -1;
+    for (int32_t i = 0; i < NUM_CX_IDS; i++) {
+        if (cx_map[i].cx_guid == cx_guid) {
+            cx_map_index = i;
+            // stateless function - checking if the value is in the cx sel table already
+            if (cx_map[i].num_state_ids == 0) {
+                if (cx_map[i].cx_sel_index > 0) {
+                    return cx_map[i].cx_sel_index;
+                }
+                cx_sel = gen_cx_sel(i, 0, MCX_VERSION);
+            } else {
+                // stateful function
+                state_id_t state_id = front(cx_map[i].avail_state_ids);
+                if (state_id < 0) {
+                    return cx_index; // No available states for cx_guid 
+                }
+                cx_sel = gen_cx_sel(i, state_id, MCX_VERSION);
+            }
+            break;
+        }
+    }
+    
+    // TODO: write a debug function that counts the entries in the cx_sel_table
+    //       to make sure it aligns with the counter.
+    cx_map[cx_map_index].counter++; // this could error out if overflowed
+
+    dequeue(avail_table_indices);
+    dequeue(cx_map[cx_map_index].avail_state_ids);
 
     cx_sel_table[cx_index] = cx_sel;
 
