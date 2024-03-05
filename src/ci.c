@@ -204,8 +204,8 @@ cx_sel_t cx_open(cx_guid_t cx_guid, cx_share_t cx_share)
             if (cx_map[i].num_state_ids == 0) {
                 // TODO: make sure this is right
                 // Checking if cx_sel_table already contains stateless cx_id
-                for (int32_t j = 0; j < CX_SEL_TABLE_NUM_ENTRIES; j++) {
-                    cx_id_t cx_id = cx_sel_table[j] & ~(~0 << 8);
+                for (int32_t j = 1; j < CX_SEL_TABLE_NUM_ENTRIES; j++) {
+                    cx_id_t cx_id = cx_sel_table[j] & 0xFF;
                     if (cx_id == i) {
                         return j;
                     }
@@ -215,11 +215,11 @@ cx_sel_t cx_open(cx_guid_t cx_guid, cx_share_t cx_share)
                 state_id_t state_id = dequeue(cx_map[i].avail_state_ids);
                 if (state_id < 0) {
                     printf("No available states for cx_guid %d\n", cx_map[i].cx_guid);
-                    exit(1);
+                    return -1; // number returned will relate to error 
                 }
                 cx_sel = gen_cx_sel(i, state_id, MCX_VERSION);
             }
-            cx_map[i].counter++;
+            cx_map[i].counter++; // this could error out if overflowed
             break;
         }
     }
@@ -228,7 +228,7 @@ cx_sel_t cx_open(cx_guid_t cx_guid, cx_share_t cx_share)
 
     if (cx_index < 0) {
         printf("Error: No available cx_index_table slots (1024 in use)\n");
-        exit(1);
+        return -1; // number returned will relate to error 
     }
 
     cx_sel_table[cx_index] = cx_sel;
@@ -238,27 +238,52 @@ cx_sel_t cx_open(cx_guid_t cx_guid, cx_share_t cx_share)
     #endif
 }
 
+// TODO: what exactly am I doing in this function?!
 void cx_close(cx_sel_t cx_sel)
 {
+
     // TODO: should test to see if table is available (m mode vs u/s mode)
     // then, disable the context
     #ifdef M_MODE
 
+    // want to define struct w/ bitfield for cx_selector so that we don't need
+    // to do this bitmanip thing, like this:
+    // typedef struct {
+    //     uint32_t state_id : 8;
+    //     uint32_t cx_id : 8;
+    // } a;
+
     #else
     cx_sel_t cx_sel_entry = cx_sel_table[cx_sel];
+
+    // TODO: make sure that this is a valid state_id (e.g., within the num_states,
+    // as a sanity check) before enqeueing
+
+    // TODO: We should have another sanity check so that the counter matches the 
+    // number of open states for each cx library. These should be true before (precondition)
+    // and after (postcondition) e.g., before and after a loop. If this condiditon is inside 
+    // of the loop, it is called a loop invariant. Can assume this is true every iteration of
+    // the loop.
+
+
+    assert(1 == 1)
+
     cx_id_t cx_id = cx_sel_entry & 0xFF;
 
     // TODO: make sure this is right
     state_id_t state_id = (cx_sel >> 16) & ~(~0 << 8);
 
-    // let the state be used again
-    enqueue(cx_map[cx_id].avail_state_ids, state_id);
 
     // keep track of number of open contexts for a given cx_guid
+    // -- or ++ may lead to race conditions.
     cx_map[cx_id].counter--;
 
     // clear the table
     cx_sel_table[cx_sel] = 0;
+
+    // let the state be used again
+    // TODO: There will need to be mutual exculsion in the case with multiple threads
+    enqueue(cx_map[cx_id].avail_state_ids, state_id);
 
     #endif
     enqueue(avail_table_indices, cx_sel);

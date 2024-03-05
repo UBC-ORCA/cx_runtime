@@ -41,6 +41,11 @@ void basic_cx_test()
     cx_sel_t my_selB = test_cx_open( CX_GUID_MULDIV, my_shareB );
 
     cx_select( my_selA );  // ensure my_selA is in correct range
+    // cx_error(); should look @ cx status register, and see which (if any)
+    //             errors are active
+    //             ABI issue: when do we write / clear error status?
+    // cx_csr_rw(); // wraps cx_csr r/w
+    // 
     result = add( a, b ); // new ABI requirement: decorated function doesn't require caller to set Legacy
     printf( "result add: %d\n", result );
 
