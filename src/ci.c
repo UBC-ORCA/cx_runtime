@@ -148,7 +148,7 @@ void init_cx_map()
     return;
 }
 
-void init_cfu_runtime() {
+void cx_init() {
     avail_table_indices = make_queue(CX_SEL_TABLE_NUM_ENTRIES);
 
     // the first slot in the table is never available - reserved
@@ -158,18 +158,6 @@ void init_cfu_runtime() {
     init_cx_map();
     return;
 }
-
-// int32_t cfu_reg(int32_t a, int32_t b, int32_t cf_id)
-// {
-//     int32_t result;
-//     asm volatile (
-//         "        cfu_reg 1,%0,%1,%2;\n"
-//         : "=r" (result)
-//         : "r" (a), "r" (b)
-//         : 
-//         );
-//     return result;
-// }
  
 cx_sel_t cx_select(cx_sel_t cx_sel) {
 
@@ -264,9 +252,6 @@ void cx_close(cx_sel_t cx_sel)
     // and after (postcondition) e.g., before and after a loop. If this condiditon is inside 
     // of the loop, it is called a loop invariant. Can assume this is true every iteration of
     // the loop.
-
-
-    assert(1 == 1)
 
     cx_id_t cx_id = cx_sel_entry & 0xFF;
 

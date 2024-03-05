@@ -28,7 +28,7 @@ cx_sel_t test_cx_open( cx_guid_t my_guid, cx_share_t my_share )
 // https://github.com/grayresearch/CX/tree/main/zoo
 
 
-void basic_cx_test() 
+void my_cx_test() 
 {
     int32_t a = 3;
     int32_t b = 5;
