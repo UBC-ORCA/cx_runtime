@@ -33,10 +33,20 @@ typedef int32_t cxu_state_context_status_t; // per state
                  :                       \
     )
 
+// TODO: RESULT
+
+// #define CX_REG (op, a, b)               \
+//     asm volatile(                       \
+//          "cfu_reg "##op##",%0,%1,%2;\n" \
+//         : "=r" (result)                 \
+//         : "r" (a), "r" (b)              \
+//         :                               \
+//     )   
+
 
 // API
 
-extern static void cx_init();
+void cx_init();
 cx_sel_t cx_open(cx_guid_t cx_guid, cx_share_t cx_share);
 cx_sel_t cx_select(cx_sel_t cx_sel);
 void     cx_close(cx_sel_t cx_sel);

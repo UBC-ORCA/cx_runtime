@@ -10,7 +10,7 @@
 #include "../include/parser.h"
 
 
-cx_sel_t test_cx_open( my_cxguid_t my_guid, cx_share_t my_share )
+cx_sel_t test_cx_open( cx_guid_t my_guid, cx_share_t my_share )
 {
     cx_sel_t my_sel = cx_open( my_guid, my_share );
     if( my_sel >= 0 ) return my_sel;
@@ -36,34 +36,33 @@ void basic_cx_test()
     int32_t result = 0;
 
     cx_share_t my_shareA=0, my_shareB=0;
-    cx_sel_t prev_sel;
 
     cx_sel_t my_selA = test_cx_open( CX_GUID_ADDSUB, my_shareA );
     cx_sel_t my_selB = test_cx_open( CX_GUID_MULDIV, my_shareB );
 
-    prev_sel = cx_select( my_selA );  // ensure my_selA is in correct range
+    cx_select( my_selA );  // ensure my_selA is in correct range
     result = add( a, b ); // new ABI requirement: decorated function doesn't require caller to set Legacy
     printf( "result add: %d\n", result );
 
-    prev_sel = cx_select( my_selB );
+    cx_select( my_selB );
     result = mul( a, b ); 
     printf( "result mul: %d\n", result );
 
-    prev_sel = cx_select( my_selA );
+    cx_select( my_selA );
     result = sub( a, b );
     printf( "result sub: %d\n", result );
 
     cx_close( my_selB );
     cx_close( my_selA );
 
-    cx_select( CX_LEGACY ); // new ABI requirement: if cx_sel changed in this function, restore Legacy on exit
+    cx_select( CX_LEGACY ); // ABI rule 4
 }
 
 
 int main()
 {
     cx_init();
-    cx_select( CX_LEGACY ); // new ABI requirement: non-decorated functions require caller to set Legacy
+    cx_select( CX_LEGACY ); // ABI rule 1
     my_cx_test();
     return 0;
 }
