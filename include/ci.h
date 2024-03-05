@@ -3,25 +3,46 @@
 #ifndef CI_H
 #define CI_H
 
-typedef int64_t cx_id_t;         // global: CX ID, a 128b GUID
-typedef int32_t cxu_id_t;        // system: CXU index
+// TYPDEFS
+
+typedef int64_t cx_guid_t;       // global: CX ID, a 128b GUID
+typedef int32_t cxu_guid_t;      // cxu package global name
+typedef int32_t cx_id_t;         // system: CXU index
+
 typedef int32_t state_id_t;      // system: state index
-typedef int32_t cx_sel_t;        // hart: CX selector (value or index)
+typedef int32_t cx_share_t;      // context sharing permissions
 
-// CX discovery
-static cxu_id_t get_cxu(cx_id_t); // map CX to its CXU here, if any
+typedef int32_t cx_sel_t;        // hart: CX selector (value (No CX Table) or index
+                                 //       (when there is a CX Table))
 
-// state context management
-static state_id_t alloc_state(cxu_id_t);
-static void free_state(cxu_id_t, state_id_t);
+typedef int32_t cxu_state_context_status_t; // per state    
 
-// CX + state selectors
-static cx_sel_t alloc_sel_cxu(cxu_id_t);
-static cx_sel_t alloc_sel_cxu_state(cx_id_t);
-static void free_sel(cx_sel_t);
 
-// CX multiplexing
-static cx_sel_t set_cur_sel(cx_sel_t); // return prev selector 
-/* May compile to a csrw of cs_index (S mode), or mcx_selector (M mode) */
+// ABI
+
+#define __CX__         //(FIXME: compiler builtin)
+#define CX_LEGACY 0
+
+
+// MACROS
+
+#define CX_REG(cf_id, rs1, rs2)                         \
+    int32_t result = -1;                                \
+    asm volatile("      cfu_reg " #cf_id ",%0,%1,%2;\n" \
+                 : "=r" (result)                        \
+                 : "r" (rs1), "r" (rs2)                 \
+                 :                                      \
+    );                                                  \
+    return result                                       
+
+// TODO: RESULT 
+
+// API
+
+void cx_init();
+cx_sel_t cx_open(cx_guid_t cx_guid, cx_share_t cx_share);
+cx_sel_t cx_select(cx_sel_t cx_sel);
+void     cx_close(cx_sel_t cx_sel);
+void cx_deselect_and_close(cx_sel_t cx_sel);
 
 #endif
