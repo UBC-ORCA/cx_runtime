@@ -190,10 +190,15 @@ cx_sel_t cx_select(cx_sel_t cx_sel) {
 
 cx_sel_t cx_open(cx_guid_t cx_guid, cx_share_t cx_share) 
 {
-    // TODO: if we're double opening, and the cx is stateless, we want to return 
-    //       the previously opened cx_index?
-
     cx_sel_t cx_sel = 0x0;
+    // Should check the CPU to see if the cx_selector_table
+    // is available
+    #ifdef M_MODE
+
+    return cx_sel;
+
+    #else
+
     for (int32_t i = 0; i < NUM_CX_IDS; i++) {
         if (cx_map[i].cx_guid == cx_guid) {
             if (cx_map[i].num_state_ids == 0) {
@@ -202,7 +207,7 @@ cx_sel_t cx_open(cx_guid_t cx_guid, cx_share_t cx_share)
                 for (int32_t j = 0; j < CX_SEL_TABLE_NUM_ENTRIES; j++) {
                     cx_id_t cx_id = cx_sel_table[j] & ~(~0 << 8);
                     if (cx_id == i) {
-                        cx_sel = cx_sel_table[j];
+                        return j;
                     }
                 }
                 cx_sel = gen_cx_sel(i, 0, MCX_VERSION);
@@ -218,13 +223,6 @@ cx_sel_t cx_open(cx_guid_t cx_guid, cx_share_t cx_share)
             break;
         }
     }
-    // Should check the CPU to see if the cx_selector_table
-    // is available
-    #ifdef M_MODE
-
-    return cx_sel;
-
-    #else
 
     cx_sel_t cx_index = dequeue(avail_table_indices);
 
