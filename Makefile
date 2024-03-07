@@ -88,4 +88,4 @@ spike: example
 clean:
 	rm -rf build/
 	rm -rf build-qemu/
-	rm -f temp
+	rm -f example

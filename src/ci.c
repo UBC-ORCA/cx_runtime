@@ -7,6 +7,9 @@
 #include "../include/queue.h"
 #include "../include/parser.h"
 
+#define TRUE 1
+#define FALSE 0
+
 #define CX_ID_BITS 8
 #define CX_ID_START_INDEX 0
 #define STATE_ID_BITS 8
@@ -15,9 +18,6 @@
 #define MAX_STATE_ID 1 << STATE_ID_BITS
 #define CX_SEL_TABLE_NUM_ENTRIES 1024
 #define VERSION_START_INDEX 28
-
-#define NUM_CX_IDS  2
-#define NUM_CXUS    2
 
 #define MCX_SELECTOR 0xBC0
 #define CX_STATUS    0x801
@@ -41,12 +41,19 @@
 #define SET_VERSION(cx_sel, version) \
     (cx_sel & 0x0fffffff) | ((version << VERSION_START_INDEX) & 0xf0000000)
 
-typedef enum {
-  OFF,
-  INITIAL,
-  CLEAN,
-  DIRTY
-} CS_STATUS_t;
+static int32_t NUM_CX_IDS = 0;
+static int32_t NUM_CXUS   = 0;
+
+// typedef enum {
+//   OFF,
+//   INITIAL,
+//   CLEAN,
+//   DIRTY
+// } CS_STATUS_t;
+
+static cx_sel_t cx_sel_table[CX_SEL_TABLE_NUM_ENTRIES];
+// static cxu_state_context_status_t cxu_state_context_status[NUM_CXUS];
+static queue_t *avail_table_indices;
 
 static inline cx_sel_t gen_cx_sel(cx_id_t cx_id, state_id_t state_id, 
                                   int32_t cx_version) 
@@ -56,10 +63,6 @@ static inline cx_sel_t gen_cx_sel(cx_id_t cx_id, state_id_t state_id,
     cx_sel = SET_VERSION(cx_sel, cx_version);
     return cx_sel;
 }
-
-static cx_sel_t cx_sel_table[CX_SEL_TABLE_NUM_ENTRIES];
-static cxu_state_context_status_t cxu_state_context_status[NUM_CXUS];
-static queue_t *avail_table_indices;
 
 static inline cx_sel_t write_mcfx_selector(cx_sel_t cx_sel)
 {
@@ -90,36 +93,36 @@ static inline cx_sel_t write_cx_selector_index(cx_sel_t cx_sel_index)
 
 // TODO: These context r/w insts should be a CSRs, but for now we're just going
 //       to write to an array of cxu status registers
-static inline cxu_state_context_status_t read_context_status(
-    cxu_state_context_status_t cxu_state_context_status)
-{
-    return cxu_state_context_status & 0b11;
-}
+// static inline cxu_state_context_status_t read_context_status(
+//     cxu_state_context_status_t cxu_state_context_status)
+// {
+//     return cxu_state_context_status & 0b11;
+// }
 
-static inline void write_context_status(
-    cxu_state_context_status_t cxu_state_context_status,
-    CS_STATUS_t cs_status)
-{
-    cxu_state_context_status &= ~0b11;
-    cxu_state_context_status |= (cs_status << 2) & 0b11;
-    return;
-}
+// static inline void write_context_status(
+//     cxu_state_context_status_t cxu_state_context_status,
+//     CS_STATUS_t cs_status)
+// {
+//     cxu_state_context_status &= ~0b11;
+//     cxu_state_context_status |= (cs_status << 2) & 0b11;
+//     return;
+// }
 
-static inline cxu_state_context_status_t read_context_size (
-    cxu_state_context_status_t cxu_state_context_status)
-{
-    return (cxu_state_context_status >> 2) & 0x1111111111;
-}
+// static inline cxu_state_context_status_t read_context_size (
+//     cxu_state_context_status_t cxu_state_context_status)
+// {
+//     return (cxu_state_context_status >> 2) & 0x1111111111;
+// }
 
-static inline void write_context_size(
-    cxu_state_context_status_t cxu_state_context_status,
-    int32_t state_size)
-{
-    cxu_state_context_status &= ~0b111111111100;
-    cxu_state_context_status |= (state_size << 2) & 0b111111111100;
+// static inline void write_context_size(
+//     cxu_state_context_status_t cxu_state_context_status,
+//     int32_t state_size)
+// {
+//     cxu_state_context_status &= ~0b111111111100;
+//     cxu_state_context_status |= (state_size << 2) & 0b111111111100;
 
-    return;
-}
+//     return;
+// }
 
 /* End of context specific functions + structs */
 
@@ -131,8 +134,8 @@ typedef struct {
 
     // dynamic members
     queue_t    *avail_state_ids;
+    int32_t    *cx_sel_index; // keeps track of cx_table_index for stateless cx's
     int32_t    counter; // open guid = increment, close guid = decrement
-    int32_t    cx_sel_index; // keeps track of cx_table_index for stateless cx's
 } cx_map_t;
 
 static cx_map_t *cx_map;
@@ -142,16 +145,85 @@ void init_cx_map()
     cx_config_info_t cx_config_info = read_files("");
 
     cx_map = (cx_map_t *) malloc(sizeof(cx_map_t) * cx_config_info.num_cxs);
+    NUM_CX_IDS = cx_config_info.num_cxs;
 
     for (int32_t i = 0; i < cx_config_info.num_cxs; i++) {
         cx_map[i].cx_guid = cx_config_info.cx_config[i].cx_guid;
         cx_map[i].avail_state_ids = make_queue(cx_config_info.cx_config[i].num_states);
         cx_map[i].counter = 0;
         cx_map[i].num_state_ids = cx_config_info.cx_config[i].num_states;
-        cx_map[i].cx_sel_index = -1;
+
+        // in the case of a stateless cx, still need to allocate 1 slot
+        int32_t num_cx_sel_indicies = (cx_config_info.cx_config[i].num_states == 0) ? 
+            1 : cx_config_info.cx_config[i].num_states; 
+
+        cx_map[i].cx_sel_index = (int32_t *) malloc(sizeof(int32_t) * num_cx_sel_indicies);
+
+        for (int32_t j = 0; j < num_cx_sel_indicies; j++) {
+            cx_map[i].cx_sel_index[j] = -1;
+        }
     }
 
     return;
+}
+
+int32_t is_valid_cx_sel_index(cx_sel_t cx_sel) 
+{
+    if (cx_sel > CX_SEL_TABLE_NUM_ENTRIES - 1) {
+        return FALSE;
+    } else if (cx_sel == 0) {
+        return FALSE;
+    }
+    return TRUE;
+}
+
+int32_t is_valid_counter(cx_id_t cx_id) 
+{
+    int32_t counter = cx_map[cx_id].counter;
+    if (counter == INT32_MAX || counter < 0) {
+        return FALSE;
+    
+    // stateful + counter out of range
+    } else if (cx_map[cx_id].num_state_ids > 0 && counter >= cx_map[cx_id].num_state_ids) {
+        return FALSE;
+    }
+    return TRUE;
+}
+
+int32_t is_valid_state_id(cx_id_t cx_id, state_id_t state_id) 
+{
+    if (state_id < 0) {
+        return FALSE; // No available states for cx_guid 
+    } else if (state_id > cx_map[cx_id].num_state_ids - 1) {
+        return FALSE;
+    }
+    return TRUE;
+}
+
+int32_t is_valid_cx_id(cx_id_t cx_id) 
+{
+    if (cx_id < 0) {
+        return FALSE; // cx_id not found
+    }
+
+    if (cx_id > NUM_CX_IDS) {
+        return FALSE; // cx_id not in valid range
+    }
+
+    return TRUE;
+}
+
+int32_t is_valid_cx_table_sel(cx_sel_t cx_sel)
+{
+    if (cx_sel < 1 || cx_sel > CX_SEL_TABLE_NUM_ENTRIES - 1) {
+        return FALSE;
+    }
+    return TRUE;
+}
+
+int32_t are_counters_correct()
+{
+    return TRUE;
 }
 
 void cx_init() {
@@ -182,6 +254,13 @@ cx_sel_t cx_select(cx_sel_t cx_sel) {
     return prev_cx_sel;
 }
 
+
+/*
+* Allocates an index on the cx_selector_table.
+* Stateless cxs: in the case there is already an index allocated, increment the counter and 
+*                return the cx_table_index. Otherwise, allocate an index and increment the counter.
+* Stateful cxs:  allocate an unused state to a free cx_selector_table index.
+*/
 cx_sel_t cx_open(cx_guid_t cx_guid, cx_share_t cx_share) 
 {
     cx_sel_t cx_sel = 0;
@@ -198,39 +277,57 @@ cx_sel_t cx_open(cx_guid_t cx_guid, cx_share_t cx_share)
     cx_sel_t cx_index = front(avail_table_indices);
 
     if (cx_index < 0) {
-        printf("Error: No available cx_index_table slots (1024 in use)\n");
-        return cx_index; // number returned will relate to error
+        return -1; // No available cx_index_table slots (1024 in use)
     }
 
     int32_t cx_id = -1;
     for (int32_t i = 0; i < NUM_CX_IDS; i++) {
         if (cx_map[i].cx_guid == cx_guid) {
             cx_id = i;
-            // stateless function - checking if the value is in the cx sel table already
-            if (cx_map[i].num_state_ids == 0) {
-                if (cx_map[i].cx_sel_index > 0) {
-                    return cx_map[i].cx_sel_index;
-                }
-                cx_sel = gen_cx_sel(i, 0, MCX_VERSION);
-            } else {
-                // stateful function
-                state_id_t state_id = front(cx_map[i].avail_state_ids);
-                if (state_id < 0) {
-                    return cx_index; // No available states for cx_guid 
-                }
-                cx_sel = gen_cx_sel(i, state_id, MCX_VERSION);
-            }
             break;
         }
+    }
+
+    if (!is_valid_cx_id(cx_id)) {
+        return -1;
+    }
+
+    if (!is_valid_counter(cx_id)) {
+        return -1;
+    }
+
+    // stateless function - checking if the value is in the cx sel table already
+    if (cx_map[cx_id].num_state_ids == 0) {
+        
+        if (cx_map[cx_id].cx_sel_index[0] > 0) {
+            
+            if (!is_valid_cx_sel_index(cx_map[cx_id].cx_sel_index[0])) {
+                return -1;
+            }
+
+            cx_map[cx_id].counter++;
+            return cx_map[cx_id].cx_sel_index[0];
+        }
+        cx_sel = gen_cx_sel(cx_id, 0, MCX_VERSION);
+
+    // stateful function
+    } else {
+        
+        state_id_t state_id = front(cx_map[cx_id].avail_state_ids);
+        
+        if (!is_valid_state_id(cx_id, state_id)) {
+            return -1; // No available states for cx_guid 
+        }
+
+        dequeue(cx_map[cx_id].avail_state_ids);
+        cx_sel = gen_cx_sel(cx_id, state_id, MCX_VERSION);
     }
     
     // TODO: write a debug function that counts the entries in the cx_sel_table
     //       to make sure it aligns with the counter.
-    cx_map[cx_id].counter++; // this could error out if overflowed
-
+    cx_map[cx_id].counter++;
+    
     dequeue(avail_table_indices);
-    dequeue(cx_map[cx_id].avail_state_ids);
-
     cx_sel_table[cx_index] = cx_sel;
 
     return cx_index;
@@ -247,10 +344,12 @@ void cx_close(cx_sel_t cx_sel)
     #ifdef M_MODE
 
     #else
-    cx_sel_t cx_sel_entry = cx_sel_table[cx_sel];
+    
+    if (!is_valid_cx_table_sel(cx_sel)) {
+        return;
+    }
 
-    // TODO: make sure that this is a valid state_id (e.g., within the num_states,
-    // as a sanity check) before enqeueing
+    cx_sel_t cx_sel_entry = cx_sel_table[cx_sel];
 
     // TODO: We should have another sanity check so that the counter matches the 
     // number of open states for each cx library. These should be true before (precondition)
@@ -261,11 +360,18 @@ void cx_close(cx_sel_t cx_sel)
     cx_id_t cx_id = GET_CX_ID(cx_sel_entry);
 
     // TODO: make sure this is right
-    state_id_t state_id = GET_STATE_ID(cx_sel);
+    state_id_t state_id = 0; 
 
+    // Stateful cx's
+    if (cx_map[cx_id].num_state_ids > 0) {
+        state_id = GET_STATE_ID(cx_sel);
+        if (!is_valid_state_id(cx_id, state_id)) {
+            return;
+        }
+    }
+    
     // keep track of number of open contexts for a given cx_guid
-    // -- or ++ may lead to race conditions.
-    cx_map[cx_id].counter--;
+    cx_map[cx_id].counter -= 1;
 
     // clear the table
     cx_sel_table[cx_sel] = 0;
@@ -273,9 +379,9 @@ void cx_close(cx_sel_t cx_sel)
     // let the state be used again
     // TODO: There will need to be mutual exculsion in the case with multiple threads
     enqueue(cx_map[cx_id].avail_state_ids, state_id);
+    enqueue(avail_table_indices, cx_sel);
 
     #endif
-    enqueue(avail_table_indices, cx_sel);
     return;
 }
 
