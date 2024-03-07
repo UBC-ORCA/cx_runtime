@@ -57,6 +57,9 @@ void my_cx_test()
     result = sub( a, b );
     printf( "result sub: %d\n", result );
 
+    result = add_1000( a, b );
+    printf( "result add_1000: %d\n", result );
+
     cx_close( my_selB );
     cx_close( my_selA );
 
