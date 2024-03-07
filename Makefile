@@ -70,17 +70,17 @@ $(BDIR)/parser.o: $(SRC)/parser.c $(IDIR)/parser.h | $(LDIR)
 	$(CC) -c $< -o $@
 
 ###########   Building Executeable   ###########
-test: examples/test.c
-	$(CC) -march=rv32imav -mabi=ilp32 $< $(cx_libraries) -L$(LDIR) -lci -O2 -o temp
+example: examples/example.c
+	$(CC) -march=rv32imav -mabi=ilp32 $< $(cx_libraries) -L$(LDIR) -lci -O2 -o example
 
 
 ###########   Running on different emulators   ###########
-qemu: temp
+qemu: example
 	${RISCV}/riscv-gnu-toolchain/qemu/build/qemu-riscv32 -L ./utils/riscv/bin/ ./$^
 
 
 ### TODO: Modify spike to execute cx instructions
-spike: temp
+spike: example
 	${RISCV}/riscv-llvm/bin/spike --isa=rv32imav ${RISCV}/riscv-pk/build-llvm/pk $^
 
 
