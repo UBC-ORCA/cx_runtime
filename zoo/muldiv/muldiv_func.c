@@ -16,3 +16,5 @@ int32_t (*muldiv_func[]) (int32_t, int32_t) = {
     mul_func,
     div_func
 };
+// FIXME: need to make sure the right number of functions are defined
+// and agree with code in cfu_helper.c:num_opcodes_for_this_CX_ID

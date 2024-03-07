@@ -7,9 +7,6 @@
 #include "../include/queue.h"
 #include "../include/parser.h"
 
-#define TRUE 1
-#define FALSE 0
-
 #define CX_ID_BITS 8
 #define CX_ID_START_INDEX 0
 #define STATE_ID_BITS 8
@@ -19,12 +16,27 @@
 #define CX_SEL_TABLE_NUM_ENTRIES 1024
 #define VERSION_START_INDEX 28
 
+#define NUM_CX_IDS  2
+#define NUM_CXUS    2
+
 #define MCX_SELECTOR 0xBC0
 #define CX_STATUS    0x801
 #define MCX_TABLE    0xBC1
 #define CX_INDEX     0x800
 
 #define MCX_VERSION 0
+
+typedef union {
+     struct {
+         uint32_t version   : 4;
+         uint32_t reserved0 : 4;
+         uint32_t state_id  : 8;
+         uint32_t reserved1 : 8;
+         uint32_t cx_id     : 8;
+     } sel;
+     int32_t idx;
+ } cx_selidx_t;
+
 
 #define GET_BITS(cx_sel, start_bit, n) \
     (cx_sel >> start_bit) & (((1 << n) - 1) )
@@ -241,7 +253,7 @@ cx_sel_t cx_select(cx_sel_t cx_sel) {
 
     cx_sel_t prev_cx_sel = 0;
 
-    #ifdef M_MODE
+    #if M_MODE
 
     prev_cx_sel = write_mcfx_selector(cx_sel);
 
@@ -267,7 +279,7 @@ cx_sel_t cx_open(cx_guid_t cx_guid, cx_share_t cx_share)
     
     // Should check the CPU to see if the cx_selector_table
     // is available
-    #ifdef M_MODE
+    #if M_MODE
 
     return cx_sel;
 
@@ -341,7 +353,7 @@ void cx_close(cx_sel_t cx_sel)
 
     // TODO: should test to see if table is available (m mode vs u/s mode)
     // then, disable the context
-    #ifdef M_MODE
+    #if M_MODE
 
     #else
     
