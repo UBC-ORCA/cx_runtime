@@ -19,15 +19,6 @@ cx_sel_t test_cx_open( cx_guid_t my_guid, cx_share_t my_share )
     exit( -1 );
 }
 
-
-// FIXME:
-// Please move the files defining add()/sub() and mul()/div_() into two distinct CX
-// libraries (ie, their own folders with identical internal organization). Right now
-// they are organized into the Runtime code base without distinction. They don't need
-// to be in separate repos; create a top-level folder called "zoo", eg:
-// https://github.com/grayresearch/CX/tree/main/zoo
-
-
 void my_cx_test() 
 {
     int32_t a = 3;
@@ -46,7 +37,7 @@ void my_cx_test()
     //             ABI issue: when do we write / clear error status?
     // cx_csr_rw(); // wraps cx_csr r/w
     // 
-    result = add( a, b ); // new ABI requirement: decorated function doesn't require caller to set Legacy
+    result = add( a, b ); // ABI rule 6
     printf( "result add: %d\n", result );
 
     cx_select( my_selB );

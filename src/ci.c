@@ -82,9 +82,7 @@ static inline cx_sel_t write_cx_selector_index(cx_sel_t cx_sel_index)
         :  "r"  (cx_sel_index)
         : 
         );
-    /* TODO: Check for some kind of error */
     write_mcfx_selector(cx_sel_table[cx_sel_index]);
-    /* TODO: Check for an error here too? */
     return prev_cx_sel_index;
 }
 
@@ -127,10 +125,13 @@ static inline void write_context_size(
 
 // index # is the cx_id
 typedef struct {
+    // static members
     cx_guid_t  cx_guid;
+    int32_t    num_state_ids;
+
+    // dynamic members
     queue_t    *avail_state_ids;
     int32_t    counter; // open guid = increment, close guid = decrement
-    int32_t    num_state_ids;
     int32_t    cx_sel_index; // keeps track of cx_table_index for stateless cx's
 } cx_map_t;
 
@@ -184,6 +185,7 @@ cx_sel_t cx_select(cx_sel_t cx_sel) {
 cx_sel_t cx_open(cx_guid_t cx_guid, cx_share_t cx_share) 
 {
     cx_sel_t cx_sel = 0;
+    
     // Should check the CPU to see if the cx_selector_table
     // is available
     #ifdef M_MODE
@@ -243,13 +245,6 @@ void cx_close(cx_sel_t cx_sel)
     // TODO: should test to see if table is available (m mode vs u/s mode)
     // then, disable the context
     #ifdef M_MODE
-
-    // want to define struct w/ bitfield for cx_selector so that we don't need
-    // to do this bitmanip thing, like this:
-    // typedef struct {
-    //     uint32_t state_id : 8;
-    //     uint32_t cx_id : 8;
-    // } a;
 
     #else
     cx_sel_t cx_sel_entry = cx_sel_table[cx_sel];
