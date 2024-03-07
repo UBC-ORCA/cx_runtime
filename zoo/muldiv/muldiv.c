@@ -1,6 +1,6 @@
 #include <stdint.h>
 
-#include "../include/muldiv.h"
+#include "muldiv.h"
 
 __CX__ int32_t mul( int32_t a, int32_t b ) 
 {

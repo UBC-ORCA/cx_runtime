@@ -2,8 +2,8 @@
 #include <stdio.h>
 
 #include "../../include/cx-qemu/mcfu_select.h"
-#include "../../include/cx-qemu/addsub_func.h"
-#include "../../include/cx-qemu/muldiv_func.h"
+#include "../../zoo/addsub/addsub_func.h"
+#include "../../zoo/muldiv/muldiv_func.h"
 #include "../../include/parser.h"
 
 typedef int64_t cx_guid_t;       // global: CX ID, a 128b GUID

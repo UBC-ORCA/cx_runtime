@@ -1,6 +1,6 @@
 #include <stdint.h>
 
-#include "../include/addsub.h"    
+#include "addsub.h"    
 
 __CX__ int32_t add( int32_t a, int32_t b ) 
 {

@@ -1,6 +1,6 @@
 #include <stdint.h>
 
-#include "../../include/cx-qemu/muldiv_func.h"
+#include "muldiv_func.h"
 
 static inline int32_t mul_func(int32_t a, int32_t b)
 {

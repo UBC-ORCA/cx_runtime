@@ -17,10 +17,13 @@ QEMU-LDIR := $(QEMU-BDIR)/lib
 QEMU-IDIR := $(IDIR)/cx-qemu
 QEMU-SRC := $(SRC)/cx-qemu
 
+ZOO-DIR := zoo
+
 
 cx_objects := $(BDIR)/ci.o $(BDIR)/queue.o $(BDIR)/parser.o
-qemu_objects := $(QEMU-BDIR)/parser.o $(QEMU-BDIR)/mcfu_select.o $(QEMU-BDIR)/addsub_func.o $(QEMU-BDIR)/muldiv_func.o
 cx_libraries := $(BDIR)/addsub.o $(BDIR)/muldiv.o
+cx_helpers := $(QEMU-BDIR)/addsub_func.o $(QEMU-BDIR)/muldiv_func.o
+qemu_objects := $(QEMU-BDIR)/parser.o $(QEMU-BDIR)/mcfu_select.o $(cx_helpers)
 
 all: $(QEMU-LDIR)/libmcfu_selector.so $(LDIR)/libci.so $(cx_libraries)
 
@@ -30,6 +33,12 @@ $(QEMU-LDIR)/libmcfu_selector.so: $(qemu_objects) $(QEMU-BDIR)/parser.o | $(QEMU
 	$(ARX86) -rcs $@ $^ $(QEMU-BDIR)/parser.o
 
 $(QEMU-BDIR)/%.o : $(QEMU-SRC)/%.c | $(QEMU-LDIR)
+	$(CCX86) -c $< -o $@
+
+$(QEMU-BDIR)/addsub_func.o : $(ZOO-DIR)/addsub/addsub_func.c | $(QEMU-LDIR)
+	$(CCX86) -c $< -o $@
+
+$(QEMU-BDIR)/muldiv_func.o : $(ZOO-DIR)/muldiv/muldiv_func.c | $(QEMU-LDIR)
 	$(CCX86) -c $< -o $@
 
 $(QEMU-LDIR):
@@ -48,10 +57,10 @@ $(LDIR):
 
 
 ###########   CX Libraries   ###########
-$(BDIR)/addsub.o: $(SRC)/addsub.c $(IDIR)/addsub.h
+$(BDIR)/addsub.o: $(ZOO-DIR)/addsub/addsub.c $(ZOO-DIR)/addsub/addsub.h
 	$(CC) -c $< -o $@
 
-$(BDIR)/muldiv.o: $(SRC)/muldiv.c $(IDIR)/muldiv.h
+$(BDIR)/muldiv.o: $(ZOO-DIR)/muldiv/muldiv.c $(ZOO-DIR)/muldiv/muldiv.h
 	$(CC) -c $< -o $@
 
 

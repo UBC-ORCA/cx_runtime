@@ -3,8 +3,8 @@
 #include <stdlib.h>
 
 #include "../include/ci.h"
-#include "../include/addsub.h"
-#include "../include/muldiv.h"
+#include "../zoo/addsub/addsub.h"
+#include "../zoo/muldiv/muldiv.h"
 
 // definitions for cx_id's are in here
 #include "../include/parser.h"

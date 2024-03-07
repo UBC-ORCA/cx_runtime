@@ -1,6 +1,6 @@
 #include <stdint.h>
 
-#include "../../include/cx-qemu/addsub_func.h"
+#include "addsub_func.h"
 
 static inline int32_t add_func(int32_t a, int32_t b)
 {
