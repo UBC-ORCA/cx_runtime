@@ -22,3 +22,5 @@ int32_t (*addsub_func[]) (int32_t, int32_t) = {
     sub_func,
     add_1000
 };
+// FIXME: need to make sure the right number of functions are defined
+// and agree with code in cfu_helper.c:num_opcodes_for_this_CX_ID
