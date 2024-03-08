@@ -14,6 +14,8 @@
 
 :x: Check objdump to make sure that inlined functions are actually being inlined
 
+:x: Move structs in cfu_helper to be initialized elsewhere + padded
+
 # Medium Term Objectives
 
 :x: Add `probe` operation to check if a given cx can properly be accessed

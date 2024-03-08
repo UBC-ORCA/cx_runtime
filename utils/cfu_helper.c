@@ -16,7 +16,7 @@ cx_func_stub_t cx_funcs[MAX_CX_ID] = {
 int32_t num_cfs[MAX_CX_ID] = {
     CX_ADDSUB_NUM_FUNCS,
     CX_MULDIV_NUM_FUNCS,
-    CX_ERROR_NUM_FUNCS
+    CX_ERROR_NUM_FUNCS // pad to max ==> Should be moved somewhere else in qemu
 };
 
 target_ulong HELPER(cfu_reg)(CPURISCVState *env, target_ulong cf_id, 
@@ -27,7 +27,9 @@ target_ulong HELPER(cfu_reg)(CPURISCVState *env, target_ulong cf_id,
     int32_t OPB = rs2;
     int32_t CX_ID = GET_CX_ID(env->mcfu_selector);
     
-    assert( OPCODE_ID <= num_cfs[CX_ID] ); // defensive programming
+    assert( CX_ID < MAX_CX_ID); // Possibly redundant
+    assert( OPCODE_ID <= num_cfs[CX_ID] );
+
     int32_t out = cx_funcs[CX_ID][OPCODE_ID](OPA, OPB);
 
     return (target_ulong)out;
