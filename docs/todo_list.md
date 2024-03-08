@@ -2,9 +2,9 @@
 
 :white_check_mark: Move cx's to zoo directory
 
-:white_check_mark: Remove mcfu_selector in favor of arrays of function pointers
+:white_check_mark: Remove mcx_selector in favor of arrays of function pointers
 
-:x: rename instances of cfu to cx
+:white_check_mark: rename instances of cfu to cx
 
 :x: Create CX_STATUS CSR to keep track of errors (%2.2.2)
 
@@ -14,7 +14,7 @@
 
 :x: Check objdump to make sure that inlined functions are actually being inlined
 
-:x: Move structs in cfu_helper to be initialized elsewhere + padded
+:x: Move structs in cfu_helper to be initialized elsewhere + add padding
 
 # Medium Term Objectives
 

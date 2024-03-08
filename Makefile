@@ -25,11 +25,11 @@ cx_libraries := $(BDIR)/addsub.o $(BDIR)/muldiv.o
 cx_helpers := $(QEMU-BDIR)/addsub_func.o $(QEMU-BDIR)/muldiv_func.o
 qemu_objects := $(cx_helpers)
 
-all: $(QEMU-LDIR)/libmcfu_selector.so $(LDIR)/libci.so $(cx_libraries)
+all: $(QEMU-LDIR)/libmcx_selector.so $(LDIR)/libci.so $(cx_libraries)
 
 
 ###########   Qemu functionality   ###########
-$(QEMU-LDIR)/libmcfu_selector.so: $(qemu_objects) | $(QEMU-LDIR)
+$(QEMU-LDIR)/libmcx_selector.so: $(qemu_objects) | $(QEMU-LDIR)
 	$(ARX86) -rcs $@ $^
 
 $(QEMU-BDIR)/%.o : $(QEMU-SRC)/%.c | $(QEMU-LDIR)

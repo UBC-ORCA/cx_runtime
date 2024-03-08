@@ -1,6 +1,6 @@
-// target/riscv/insn_trans/trans_cfu.c.inc
+// target/riscv/insn_trans/trans_cx.c.inc
 
-static bool gen_cfu_reg_r(DisasContext *ctx, arg_cfu_reg *a,
+static bool gen_cx_reg_r(DisasContext *ctx, arg_cx_reg *a,
                           void (*func)(TCGv, TCGv_ptr, TCGv, TCGv, TCGv))
 {
     TCGv dest = dest_gpr(ctx, a->rd);
@@ -13,7 +13,7 @@ static bool gen_cfu_reg_r(DisasContext *ctx, arg_cfu_reg *a,
     return true;
 }
 
-static bool trans_cfu_reg(DisasContext *ctx, arg_cfu_reg *a) 
+static bool trans_cx_reg(DisasContext *ctx, arg_cx_reg *a) 
 {
-    return gen_cfu_reg_r(ctx, a, gen_helper_cfu_reg);
+    return gen_cx_reg_r(ctx, a, gen_helper_cx_reg);
 }
