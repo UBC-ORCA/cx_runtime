@@ -16,8 +16,8 @@
 #define CX_SEL_TABLE_NUM_ENTRIES 1024
 #define VERSION_START_INDEX 28
 
-#define NUM_CX_IDS  2
-#define NUM_CXUS    2
+#define FALSE 0
+#define TRUE 1
 
 #define MCX_SELECTOR 0xBC0
 #define CX_STATUS    0x801
