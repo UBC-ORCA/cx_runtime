@@ -1,7 +1,7 @@
 #include <stdint.h>
-#include <stdbool.h>
 #include <stdlib.h>
 #include <stdio.h>
+#include <assert.h>
 
 #include "../include/ci.h"
 #include "../include/queue.h"
@@ -56,15 +56,7 @@ typedef union {
 static int32_t NUM_CX_IDS = 0;
 static int32_t NUM_CXUS   = 0;
 
-// typedef enum {
-//   OFF,
-//   INITIAL,
-//   CLEAN,
-//   DIRTY
-// } CS_STATUS_t;
-
 static cx_sel_t cx_sel_table[CX_SEL_TABLE_NUM_ENTRIES];
-// static cxu_state_context_status_t cxu_state_context_status[NUM_CXUS];
 static queue_t *avail_table_indices;
 
 static inline cx_sel_t gen_cx_sel(cx_id_t cx_id, state_id_t state_id, 
@@ -101,43 +93,6 @@ static inline cx_sel_t write_cx_selector_index(cx_sel_t cx_sel_index)
     return prev_cx_sel_index;
 }
 
-/* Context specific functions + structs */
-
-// TODO: These context r/w insts should be a CSRs, but for now we're just going
-//       to write to an array of cxu status registers
-// static inline cxu_state_context_status_t read_context_status(
-//     cxu_state_context_status_t cxu_state_context_status)
-// {
-//     return cxu_state_context_status & 0b11;
-// }
-
-// static inline void write_context_status(
-//     cxu_state_context_status_t cxu_state_context_status,
-//     CS_STATUS_t cs_status)
-// {
-//     cxu_state_context_status &= ~0b11;
-//     cxu_state_context_status |= (cs_status << 2) & 0b11;
-//     return;
-// }
-
-// static inline cxu_state_context_status_t read_context_size (
-//     cxu_state_context_status_t cxu_state_context_status)
-// {
-//     return (cxu_state_context_status >> 2) & 0x1111111111;
-// }
-
-// static inline void write_context_size(
-//     cxu_state_context_status_t cxu_state_context_status,
-//     int32_t state_size)
-// {
-//     cxu_state_context_status &= ~0b111111111100;
-//     cxu_state_context_status |= (state_size << 2) & 0b111111111100;
-
-//     return;
-// }
-
-/* End of context specific functions + structs */
-
 // index # is the cx_id
 typedef struct {
     // static members
@@ -146,7 +101,7 @@ typedef struct {
 
     // dynamic members
     queue_t    *avail_state_ids;
-    int32_t    *cx_sel_index; // keeps track of cx_table_index for stateless cx's
+    int32_t    *cx_sel_index; // keeps track of cx_table_indicies
     int32_t    counter; // open guid = increment, close guid = decrement
 } cx_map_t;
 
@@ -233,8 +188,26 @@ int32_t is_valid_cx_table_sel(cx_sel_t cx_sel)
     return TRUE;
 }
 
-int32_t are_counters_correct()
+int32_t verify_counters()
 {
+    int32_t *counters = malloc(sizeof(int32_t) * NUM_CX_IDS);
+
+    for (int32_t i = 0; i < CX_SEL_TABLE_NUM_ENTRIES - 1; i++) {
+        cx_sel_t cx_sel = cx_sel_table[i];
+        if (cx_sel == 0) {
+            continue;
+        }
+        cx_id_t cx_id = GET_CX_ID(cx_sel);
+        assert(cx_id < NUM_CX_IDS);
+        counters[cx_id]++;
+    }
+    for (int32_t cx_id = 0; cx_id < NUM_CX_IDS; cx_id++) {
+        if (cx_map[cx_id].counter != counters[cx_id]) {
+            free(counters);
+            return FALSE;
+        }
+    }
+    free(counters);
     return TRUE;
 }
 
@@ -308,6 +281,8 @@ cx_sel_t cx_open(cx_guid_t cx_guid, cx_share_t cx_share)
         return -1;
     }
 
+    state_id_t state_id = front(cx_map[cx_id].avail_state_ids);
+
     // stateless function - checking if the value is in the cx sel table already
     if (cx_map[cx_id].num_state_ids == 0) {
         
@@ -321,12 +296,9 @@ cx_sel_t cx_open(cx_guid_t cx_guid, cx_share_t cx_share)
             return cx_map[cx_id].cx_sel_index[0];
         }
         cx_sel = gen_cx_sel(cx_id, 0, MCX_VERSION);
-
     // stateful function
     } else {
-        
-        state_id_t state_id = front(cx_map[cx_id].avail_state_ids);
-        
+                
         if (!is_valid_state_id(cx_id, state_id)) {
             return -1; // No available states for cx_guid 
         }
@@ -335,19 +307,36 @@ cx_sel_t cx_open(cx_guid_t cx_guid, cx_share_t cx_share)
         cx_sel = gen_cx_sel(cx_id, state_id, MCX_VERSION);
     }
     
-    // TODO: write a debug function that counts the entries in the cx_sel_table
-    //       to make sure it aligns with the counter.
+    #if DEBUG
+
+    if (!verify_counters()) {
+        return -1;
+    }
+
+    #endif
+
     cx_map[cx_id].counter++;
     
     dequeue(avail_table_indices);
     cx_sel_table[cx_index] = cx_sel;
+
+    if (cx_map[cx_id].num_state_ids == 0) {
+        cx_map[cx_id].cx_sel_index[0] = cx_index;
+    } else {
+        cx_map[cx_id].cx_sel_index[state_id] = cx_index;
+    }
 
     return cx_index;
 
     #endif
 }
 
-// TODO: what exactly am I doing in this function?!
+/*
+* Stateless cxs: Decrements counter. In the case that the last instance of 
+                 a cx has been closed, the cx is removed from the cx_sel_table.
+* Stateful cxs:  Removes entry from cx_sel_table and decrements the counter. 
+                 Marks state as available.
+*/
 void cx_close(cx_sel_t cx_sel)
 {
 
@@ -363,35 +352,53 @@ void cx_close(cx_sel_t cx_sel)
 
     cx_sel_t cx_sel_entry = cx_sel_table[cx_sel];
 
-    // TODO: We should have another sanity check so that the counter matches the 
-    // number of open states for each cx library. These should be true before (precondition)
-    // and after (postcondition) e.g., before and after a loop. If this condiditon is inside 
-    // of the loop, it is called a loop invariant. Can assume this is true every iteration of
-    // the loop.
-
     cx_id_t cx_id = GET_CX_ID(cx_sel_entry);
 
-    // TODO: make sure this is right
-    state_id_t state_id = 0; 
+    if (!is_valid_cx_id(cx_id)) {
+        return;
+    };
+
+    #if DEBUG
+
+    if (!verify_counters()) {
+        return -1;
+    }
+
+    #endif
 
     // Stateful cx's
     if (cx_map[cx_id].num_state_ids > 0) {
-        state_id = GET_STATE_ID(cx_sel);
+        state_id_t state_id = GET_STATE_ID(cx_sel);
         if (!is_valid_state_id(cx_id, state_id)) {
             return;
         }
+
+        // keep track of number of open contexts for a given cx_guid
+        cx_map[cx_id].counter -= 1;
+
+        // clear the table
+        cx_sel_table[cx_sel] = 0;
+
+        // delete cx_sel_index from map
+        cx_map[cx_id].cx_sel_index[state_id] = -1;
+
+        // let the state be used again
+        // TODO: There will need to be mutual exculsion in the case with multiple threads
+        enqueue(cx_map[cx_id].avail_state_ids, state_id);
+        enqueue(avail_table_indices, cx_sel);
+
+    // Stateless cx's
+    } else if (cx_map[cx_id].num_state_ids == 0) {
+        cx_map[cx_id].counter -= 1;
+        
+        // Don't clear the cx_selector_table entry unless the counter is at 0
+        if (cx_map[cx_id].counter == 0) {
+            cx_sel_table[cx_sel] = 0;
+            cx_map[cx_id].cx_sel_index[0] = -1;
+        }
+    } else {
+        return; // Shouldn't make it to this case
     }
-    
-    // keep track of number of open contexts for a given cx_guid
-    cx_map[cx_id].counter -= 1;
-
-    // clear the table
-    cx_sel_table[cx_sel] = 0;
-
-    // let the state be used again
-    // TODO: There will need to be mutual exculsion in the case with multiple threads
-    enqueue(cx_map[cx_id].avail_state_ids, state_id);
-    enqueue(avail_table_indices, cx_sel);
 
     #endif
     return;
