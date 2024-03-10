@@ -28,30 +28,14 @@
 
 typedef union {
      struct {
-         uint32_t version   : 4;
-         uint32_t reserved0 : 4;
-         uint32_t state_id  : 8;
-         uint32_t reserved1 : 8;
-         uint32_t cx_id     : 8;
+        uint32_t cx_id     : 8;
+        uint32_t reserved1 : 8;
+        uint32_t state_id  : 8;
+        uint32_t reserved0 : 4;
+        uint32_t version   : 4;
      } sel;
-     int32_t idx;
+     cx_sel_t idx;
  } cx_selidx_t;
-
-
-#define GET_BITS(cx_sel, start_bit, n) \
-    (cx_sel >> start_bit) & (((1 << n) - 1) )
-
-#define GET_CX_ID(cx_sel) \
-    GET_BITS(cx_sel, CX_ID_START_INDEX, CX_ID_BITS)
-
-#define GET_STATE_ID(cx_sel) \
-    GET_BITS(cx_sel, STATE_ID_START_INDEX, STATE_ID_BITS)
-
-#define SET_STATE_ID(cx_sel, state_id) \
-    (cx_sel & 0xff00ffff) | ((state_id << STATE_ID_START_INDEX) & 0x00ff0000)
-
-#define SET_VERSION(cx_sel, version) \
-    (cx_sel & 0x0fffffff) | ((version << VERSION_START_INDEX) & 0xf0000000)
 
 static int32_t NUM_CX_IDS = 0;
 static int32_t NUM_CXUS   = 0;
@@ -62,10 +46,10 @@ static queue_t *avail_table_indices;
 static inline cx_sel_t gen_cx_sel(cx_id_t cx_id, state_id_t state_id, 
                                   int32_t cx_version) 
 {
-    cx_sel_t cx_sel = cx_id;
-    cx_sel = SET_STATE_ID(cx_sel, state_id);
-    cx_sel = SET_VERSION(cx_sel, cx_version);
-    return cx_sel;
+    cx_selidx_t cx_sel = {.sel = {.cx_id = cx_id, 
+                                  .state_id = state_id,
+                                  .version = cx_version}};
+    return cx_sel.idx;
 }
 
 static inline cx_sel_t write_mcfx_selector(cx_sel_t cx_sel)
@@ -176,7 +160,6 @@ int32_t is_valid_cx_id(cx_id_t cx_id)
     if (cx_id > NUM_CX_IDS) {
         return FALSE; // cx_id not in valid range
     }
-
     return TRUE;
 }
 
@@ -197,7 +180,7 @@ int32_t verify_counters()
         if (cx_sel == 0) {
             continue;
         }
-        cx_id_t cx_id = GET_CX_ID(cx_sel);
+        cx_id_t cx_id = ((cx_selidx_t) cx_sel).sel.cx_id;
         assert(cx_id < NUM_CX_IDS);
         counters[cx_id]++;
     }
@@ -221,7 +204,7 @@ void cx_init() {
     init_cx_map();
     return;
 }
- 
+
 cx_sel_t cx_select(cx_sel_t cx_sel) {
 
     cx_sel_t prev_cx_sel = 0;
@@ -352,7 +335,7 @@ void cx_close(cx_sel_t cx_sel)
 
     cx_sel_t cx_sel_entry = cx_sel_table[cx_sel];
 
-    cx_id_t cx_id = GET_CX_ID(cx_sel_entry);
+    cx_id_t cx_id = ((cx_selidx_t) cx_sel_entry).sel.cx_id;
 
     if (!is_valid_cx_id(cx_id)) {
         return;
@@ -368,7 +351,7 @@ void cx_close(cx_sel_t cx_sel)
 
     // Stateful cx's
     if (cx_map[cx_id].num_state_ids > 0) {
-        state_id_t state_id = GET_STATE_ID(cx_sel);
+        state_id_t state_id = ((cx_selidx_t) cx_sel).sel.state_id;
         if (!is_valid_state_id(cx_id, state_id)) {
             return;
         }
