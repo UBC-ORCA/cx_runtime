@@ -1,14 +1,6 @@
 # Short Term Objectives
 
-:white_check_mark: Move cx's to zoo directory
-
-:white_check_mark: Remove mcx_selector in favor of arrays of function pointers
-
-:white_check_mark: rename instances of cfu to cx
-
 :x: Create CX_STATUS CSR to keep track of errors (%2.2.2)
-
-:x: Add checks to cx_open / cx_close for robustness in multi-threaded scenarios
 
 :x: Define error codes, and use perror instead of printf
 
@@ -24,3 +16,13 @@
 
 :x: Consider how the user will interact with the `cx_error();` function - when will it be called? 
     should it be a part of `cx_close();`?
+
+# Completed objectives
+
+:white_check_mark: Move cx's to zoo directory
+
+:white_check_mark: Remove mcx_selector in favor of arrays of function pointers
+
+:white_check_mark: rename instances of cfu to cx
+
+:white_check_mark: Add checks to cx_open / cx_close for robustness in multi-threaded scenarios
