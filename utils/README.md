@@ -8,7 +8,7 @@
 1. run `make all` again, from the `cx_runtime/` dir.
 
 # Building an example
-1. `make test`
+1. `make example`
 2. `make qemu`
 
 ## TODO: Optional - LLVM build

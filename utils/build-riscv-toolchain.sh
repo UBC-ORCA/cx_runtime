@@ -45,7 +45,7 @@ pushd binutils
 git apply --ignore-space-change --reject --whitespace=fix -C2 ../../binutils.diff
 
 if [ $? -ne 0 ]; then
-	echo "Issue applying cfu diff to rvv toolchain"
+	echo "Issue applying cx diff to rvv toolchain"
     exit 1
 fi
 
@@ -84,24 +84,24 @@ if [ $? -ne 0 ]; then
 fi
 
 # Need to test this out - should make changes from the diff
-git apply --ignore-space-change --reject --whitespace=fix -C2 ../../qemu_cfu.diff
+git apply --ignore-space-change --reject --whitespace=fix -C2 ../../qemu_cx.diff
 
 if [ $? -ne 0 ]; then
 	echo "Issue with applying diff changes to qemu"
     exit 1
 fi
 
-cp ../../cfu_helper.c target/riscv/cfu_helper.c
+cp ../../cx_helper.c target/riscv/cx_helper.c
 
 if [ $? -ne 0 ]; then
-	echo "Issue with copying files to qemu (cfu_helper.c)"
+	echo "Issue with copying files to qemu (cx_helper.c)"
     exit 1
 fi
 
-cp ../../trans_cfu.c.inc target/riscv/insn_trans/trans_cfu.c.inc
+cp ../../trans_cx.c.inc target/riscv/insn_trans/trans_cx.c.inc
 
 if [ $? -ne 0 ]; then
-	echo "Issue with copying files to qemu (trans_cfu.c.inc)"
+	echo "Issue with copying files to qemu (trans_cx.c.inc)"
     exit 1
 fi
 

@@ -28,7 +28,7 @@ typedef int32_t cxu_state_context_status_t; // per state
 
 #define CX_REG(cf_id, rs1, rs2)                         \
     int32_t result = -1;                                \
-    asm volatile("      cfu_reg " #cf_id ",%0,%1,%2;\n" \
+    asm volatile("      cx_reg " #cf_id ",%0,%1,%2;\n" \
                  : "=r" (result)                        \
                  : "r" (rs1), "r" (rs2)                 \
                  :                                      \
