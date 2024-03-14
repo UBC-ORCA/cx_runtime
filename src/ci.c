@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <assert.h>
+#include <errno.h>
 
 #include "../include/ci.h"
 #include "../include/queue.h"
@@ -13,8 +14,10 @@
 #define STATE_ID_START_INDEX 16
 #define MAX_CXU_ID 1 << CX_ID_BITS
 #define MAX_STATE_ID 1 << STATE_ID_BITS
+
 #define CX_SEL_TABLE_NUM_ENTRIES 1024
 #define VERSION_START_INDEX 28
+#define DEBUG 1
 
 #define FALSE 0
 #define TRUE 1
@@ -24,7 +27,7 @@
 #define MCX_TABLE    0xBC1
 #define CX_INDEX     0x800
 
-#define MCX_VERSION 0
+#define MCX_VERSION 1
 
 typedef union {
      struct {
@@ -173,7 +176,7 @@ int32_t is_valid_cx_table_sel(cx_sel_t cx_sel)
 
 int32_t verify_counters()
 {
-    int32_t *counters = malloc(sizeof(int32_t) * NUM_CX_IDS);
+    int32_t *counters = calloc(NUM_CX_IDS, sizeof(int32_t));
 
     for (int32_t i = 0; i < CX_SEL_TABLE_NUM_ENTRIES - 1; i++) {
         cx_sel_t cx_sel = cx_sel_table[i];
@@ -184,8 +187,32 @@ int32_t verify_counters()
         assert(cx_id < NUM_CX_IDS);
         counters[cx_id]++;
     }
+
     for (int32_t cx_id = 0; cx_id < NUM_CX_IDS; cx_id++) {
-        if (cx_map[cx_id].counter != counters[cx_id]) {
+        // stateless
+        if (cx_map[cx_id].num_state_ids == 0) {
+            // Only 1 stateless cx_index per cx_table allowed
+            if (counters[cx_id] > 1) {
+                free(counters);
+                printf("1\n");
+                return FALSE;
+            }
+            // hanging value in cx_table
+            if (cx_map[cx_id].counter == 0 && counters[cx_id] == 1) {
+                free(counters);
+                printf("2\n");
+                return FALSE;
+            }
+            // counter value was not properly decremented on close
+            if (cx_map[cx_id].counter > 0 && counters[cx_id] == 0) {
+                free(counters);
+                printf("3\n");
+                return FALSE;
+            }
+        }
+
+        // stateful
+        else if (cx_map[cx_id].counter != counters[cx_id]) {
             free(counters);
             return FALSE;
         }
@@ -209,7 +236,7 @@ cx_sel_t cx_select(cx_sel_t cx_sel) {
 
     cx_sel_t prev_cx_sel = 0;
 
-    #if M_MODE
+    #if CX_SEL_TABLE
 
     prev_cx_sel = write_mcfx_selector(cx_sel);
 
@@ -231,11 +258,12 @@ cx_sel_t cx_select(cx_sel_t cx_sel) {
 */
 cx_sel_t cx_open(cx_guid_t cx_guid, cx_share_t cx_share) 
 {
+
     cx_sel_t cx_sel = 0;
     
     // Should check the CPU to see if the cx_selector_table
     // is available
-    #if M_MODE
+    #if CX_SEL_TABLE
 
     return cx_sel;
 
@@ -245,6 +273,7 @@ cx_sel_t cx_open(cx_guid_t cx_guid, cx_share_t cx_share)
     cx_sel_t cx_index = front(avail_table_indices);
 
     if (cx_index < 0) {
+        errno = 134;
         return -1; // No available cx_index_table slots (1024 in use)
     }
 
@@ -257,10 +286,12 @@ cx_sel_t cx_open(cx_guid_t cx_guid, cx_share_t cx_share)
     }
 
     if (!is_valid_cx_id(cx_id)) {
+        errno = 135;
         return -1;
     }
 
     if (!is_valid_counter(cx_id)) {
+        errno = 136;
         return -1;
     }
 
@@ -272,6 +303,7 @@ cx_sel_t cx_open(cx_guid_t cx_guid, cx_share_t cx_share)
         if (cx_map[cx_id].cx_sel_index[0] > 0) {
             
             if (!is_valid_cx_sel_index(cx_map[cx_id].cx_sel_index[0])) {
+                errno = 138;
                 return -1;
             }
 
@@ -279,10 +311,12 @@ cx_sel_t cx_open(cx_guid_t cx_guid, cx_share_t cx_share)
             return cx_map[cx_id].cx_sel_index[0];
         }
         cx_sel = gen_cx_sel(cx_id, 0, MCX_VERSION);
+    
     // stateful function
     } else {
                 
         if (!is_valid_state_id(cx_id, state_id)) {
+            errno = 139;
             return -1; // No available states for cx_guid 
         }
 
@@ -293,6 +327,7 @@ cx_sel_t cx_open(cx_guid_t cx_guid, cx_share_t cx_share)
     #if DEBUG
 
     if (!verify_counters()) {
+        errno = 137;
         return -1;
     }
 
@@ -325,7 +360,7 @@ void cx_close(cx_sel_t cx_sel)
 
     // TODO: should test to see if table is available (m mode vs u/s mode)
     // then, disable the context
-    #if M_MODE
+    #if CX_SEL_TABLE
 
     #else
     
@@ -335,16 +370,22 @@ void cx_close(cx_sel_t cx_sel)
 
     cx_sel_t cx_sel_entry = cx_sel_table[cx_sel];
 
+    if (cx_sel_entry == 0) {
+        errno = 140;
+        return;
+    }
+
     cx_id_t cx_id = ((cx_selidx_t) cx_sel_entry).sel.cx_id;
 
     if (!is_valid_cx_id(cx_id)) {
+        errno = 135;
         return;
     };
 
     #if DEBUG
 
     if (!verify_counters()) {
-        return -1;
+        errno = 137;
     }
 
     #endif
@@ -372,6 +413,13 @@ void cx_close(cx_sel_t cx_sel)
 
     // Stateless cx's
     } else if (cx_map[cx_id].num_state_ids == 0) {
+
+        // State must be 0 in the table
+        if (((cx_selidx_t) cx_sel_entry).sel.state_id != 0) {
+            errno = 141;
+            return;
+        }
+
         cx_map[cx_id].counter -= 1;
         
         // Don't clear the cx_selector_table entry unless the counter is at 0

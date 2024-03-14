@@ -20,9 +20,9 @@ static cx_config_t* readConf(char* filename) {
   /* TODO: Find the number of cx_config files here */
 
   cx_config_t *cx_config = (cx_config_t *) malloc(sizeof(cx_config));
-  const char* file = "/home/bf/research/riscv-tools/cx_runtime/cx_metadata/addsub.txt";
-  FILE* test_file = fopen(file, "r+");
+  const char* file = "/home/bf/research/riscv-tools/cx_runtime/addsub.txt";
   printf("filename: %s\n", filename);
+  FILE* test_file = fopen(file, "w");
   if (test_file == NULL) {
     fprintf(stderr, "open error for %s, errno = %d\n", file, errno);
     exit(0);
@@ -64,11 +64,13 @@ cx_config_info_t read_files(char *path)
   // Unfortunately, qemu can't access host files. This means that the
   // structs need to be defined in code, or that we shift to using spike
   // at some point down the road.
+  int32_t num_cxs = 3;
+  // *readConf("addsub.txt");
 
-  int32_t num_cxs = 2;
   cx_config_t static cx_config[] = {
-    {.cx_guid = CX_GUID_ADDSUB, .num_states = 3},
-    {.cx_guid = CX_GUID_MULDIV, .num_states = 2}
+    {.cx_guid = CX_GUID_ADDSUB, .num_states = 0},
+    {.cx_guid = CX_GUID_MULDIV, .num_states = 3},
+    {.cx_guid = CX_GUID_TEMP,   .num_states = 1025}
   };
 
   // int32_t num_cxs = 2;

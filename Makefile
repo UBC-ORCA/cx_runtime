@@ -11,6 +11,7 @@ BDIR := build
 LDIR := $(BDIR)/lib
 IDIR := include
 SRC  := src
+TEST := test
 
 QEMU-BDIR := build-qemu
 QEMU-LDIR := $(QEMU-BDIR)/lib
@@ -70,19 +71,32 @@ $(BDIR)/parser.o: $(SRC)/parser.c $(IDIR)/parser.h | $(LDIR)
 	$(CC) -c $< -o $@
 
 ###########   Building Executeable   ###########
-example: examples/example.c
+example: examples/example.c $(LDIR)/libci.so
 	$(CC) -march=rv32imav -mabi=ilp32 $< $(cx_libraries) -L$(LDIR) -lci -O2 -o example
 
 
 ###########   Running on different emulators   ###########
-qemu: example
+qemu: cx_table_test
 	${RISCV}/riscv-gnu-toolchain/qemu/build/qemu-riscv32 -L ./utils/riscv/bin/ ./$^
-
+# -virtfs local,path=/home/bf/research/riscv-tools/cx_runtime/,mount_tag=host0,security_model=passthrough,id=host0
 
 ### TODO: Modify spike to execute cx instructions
 spike: example
 	${RISCV}/riscv-llvm/bin/spike --isa=rv32imav ${RISCV}/riscv-pk/build-llvm/pk $^
 
+
+
+###########   tests   ###########
+test: stateless_test stateful_test cx_table_test
+
+stateless_test: $(TEST)/stateless_test.c $(LDIR)/libci.so
+	$(CC) -march=rv32imav -mabi=ilp32 $< $(cx_libraries) -L$(LDIR) -lci -O2 -o $@
+
+stateful_test: $(TEST)/stateful_test.c $(LDIR)/libci.so
+	$(CC) -march=rv32imav -mabi=ilp32 $< $(cx_libraries) -L$(LDIR) -lci -O2 -o $@
+
+cx_table_test: $(TEST)/cx_table_test.c $(LDIR)/libci.so
+	$(CC) -march=rv32imav -mabi=ilp32 $< $(cx_libraries) -L$(LDIR) -lci -O2 -o $@
 
 ###########   Clean build   ###########
 clean:

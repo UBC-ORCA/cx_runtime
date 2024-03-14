@@ -5,6 +5,7 @@
 
 #define CX_GUID_ADDSUB 3
 #define CX_GUID_MULDIV 7
+#define CX_GUID_TEMP 15
 
 typedef struct {
   int32_t cx_guid;
