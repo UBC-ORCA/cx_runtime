@@ -20,11 +20,10 @@ QEMU-SRC := $(SRC)/cx-qemu
 
 ZOO-DIR := zoo
 
-
 cx_objects := $(BDIR)/ci.o $(BDIR)/queue.o $(BDIR)/parser.o
 cx_libraries := $(BDIR)/addsub.o $(BDIR)/muldiv.o
-cx_helpers := $(QEMU-BDIR)/addsub_func.o $(QEMU-BDIR)/muldiv_func.o
-qemu_objects := $(cx_helpers)
+cx_helpers := $(QEMU-BDIR)/addsub_func.o $(QEMU-BDIR)/muldiv_func.o 
+qemu_objects := $(cx_helpers) $(QEMU-BDIR)/exports.o
 
 all: $(QEMU-LDIR)/libmcx_selector.so $(LDIR)/libci.so $(cx_libraries)
 
@@ -40,6 +39,9 @@ $(QEMU-BDIR)/addsub_func.o : $(ZOO-DIR)/addsub/addsub_func.c | $(QEMU-LDIR)
 	$(CCX86) -c $< -o $@
 
 $(QEMU-BDIR)/muldiv_func.o : $(ZOO-DIR)/muldiv/muldiv_func.c | $(QEMU-LDIR)
+	$(CCX86) -c $< -o $@
+
+$(QEMU-BDIR)/exports.o : $(ZOO-DIR)/exports.c | $(QEMU-LDIR)
 	$(CCX86) -c $< -o $@
 
 $(QEMU-LDIR):
@@ -76,14 +78,14 @@ example: examples/example.c $(LDIR)/libci.so
 
 
 ###########   Running on different emulators   ###########
-qemu: cx_table_test
-	${RISCV}/riscv-gnu-toolchain/qemu/build/qemu-riscv32 -L ./utils/riscv/bin/ ./$^
+qemu: example
+	${RISCV}/riscv-gnu-toolchain/qemu/build/qemu-riscv32 ./$^
 # -virtfs local,path=/home/bf/research/riscv-tools/cx_runtime/,mount_tag=host0,security_model=passthrough,id=host0
 
 ### TODO: Modify spike to execute cx instructions
 spike: example
-	${RISCV}/riscv-llvm/bin/spike --isa=rv32imav ${RISCV}/riscv-pk/build-llvm/pk $^
-
+	${RISCV}/riscv-gnu-toolchain/spike/build/spike --cxs=0,1 --isa=rv32imav ${RISCV}/riscv-gnu-toolchain/pk/build/pk $^
+# ${RISCV}/riscv-gnu-toolchain/pk/build/pk $^
 
 
 ###########   tests   ###########

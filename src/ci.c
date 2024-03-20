@@ -59,7 +59,7 @@ static inline cx_sel_t write_mcfx_selector(cx_sel_t cx_sel)
 {
     cx_sel_t prev_cx_sel = 0x0;
     asm volatile (
-        "        csrrw %0, 0xBC0, %1;\n"
+        "        csrrw %0, 0x802, %1;\n"
         :  "=r" (prev_cx_sel)
         :  "r"  (cx_sel)
         : 
@@ -94,11 +94,11 @@ typedef struct {
 
 static cx_map_t *cx_map;
 
-void init_cx_map() 
+void init_cx_map(char **paths, int32_t num_cxs) 
 {
-    cx_config_info_t cx_config_info = read_files("");
+    cx_map = (cx_map_t *) malloc(sizeof(cx_map_t) * num_cxs);
+    cx_config_info_t cx_config_info = read_files(paths, num_cxs);
 
-    cx_map = (cx_map_t *) malloc(sizeof(cx_map_t) * cx_config_info.num_cxs);
     NUM_CX_IDS = cx_config_info.num_cxs;
 
     for (int32_t i = 0; i < cx_config_info.num_cxs; i++) {
@@ -194,19 +194,16 @@ int32_t verify_counters()
             // Only 1 stateless cx_index per cx_table allowed
             if (counters[cx_id] > 1) {
                 free(counters);
-                printf("1\n");
                 return FALSE;
             }
             // hanging value in cx_table
             if (cx_map[cx_id].counter == 0 && counters[cx_id] == 1) {
                 free(counters);
-                printf("2\n");
                 return FALSE;
             }
             // counter value was not properly decremented on close
             if (cx_map[cx_id].counter > 0 && counters[cx_id] == 0) {
                 free(counters);
-                printf("3\n");
                 return FALSE;
             }
         }
@@ -221,14 +218,14 @@ int32_t verify_counters()
     return TRUE;
 }
 
-void cx_init() {
+void cx_init(char **paths, int32_t num_cxs) {
     avail_table_indices = make_queue(CX_SEL_TABLE_NUM_ENTRIES);
 
     // the first slot in the table is never available - reserved
     // for legacy cx_indicies
     dequeue(avail_table_indices);
 
-    init_cx_map();
+    init_cx_map(paths, num_cxs);
     return;
 }
 

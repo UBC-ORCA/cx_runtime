@@ -1,0 +1,251 @@
+diff --git a/configure b/configure
+index 73e52030..52eafed1 100755
+--- a/configure
++++ b/configure
+@@ -4933,7 +4933,7 @@ if ${ac_cv_lib_pthread_pthread_create+:} false; then :
+   $as_echo_n "(cached) " >&6
+ else
+   ac_check_lib_save_LIBS=$LIBS
+-LIBS="-lpthread  $LIBS"
++LIBS="-lpthread -lmcx_selector $LIBS"
+ cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+ /* end confdefs.h.  */
+ 
+@@ -4968,7 +4968,7 @@ if test "x$ac_cv_lib_pthread_pthread_create" = xyes; then :
+ #define HAVE_LIBPTHREAD 1
+ _ACEOF
+ 
+-  LIBS="-lpthread $LIBS"
++  LIBS="-lpthread -lmcx_selector $LIBS"
+ 
+ else
+   as_fn_error $? "libpthread is required" "$LINENO" 5
+@@ -6006,7 +6006,7 @@ if ${ac_cv_lib_pthread_pthread_create+:} false; then :
+   $as_echo_n "(cached) " >&6
+ else
+   ac_check_lib_save_LIBS=$LIBS
+-LIBS="-lpthread  $LIBS"
++LIBS="-lpthread -lmcx_selector  $LIBS"
+ cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+ /* end confdefs.h.  */
+ 
+@@ -6041,7 +6041,7 @@ if test "x$ac_cv_lib_pthread_pthread_create" = xyes; then :
+ #define HAVE_LIBPTHREAD 1
+ _ACEOF
+ 
+-  LIBS="-lpthread $LIBS"
++  LIBS="-lpthread -lmcx_selector $LIBS"
+ 
+ else
+   as_fn_error $? "libpthread is required" "$LINENO" 5
+diff --git a/riscv/decode.h b/riscv/decode.h
+index cd1c0a12..3b4f22ac 100644
+--- a/riscv/decode.h
++++ b/riscv/decode.h
+@@ -8,6 +8,7 @@
+ #endif
+ 
+ #include "../softfloat/softfloat_types.h"
++
+ #include <algorithm>
+ #include <cstdint>
+ #include <string.h>
+@@ -93,6 +94,7 @@ public:
+   uint64_t iorw() { return x(20, 8); }
+   uint64_t bs() { return x(30, 2); } // Crypto ISE - SM4/AES32 byte select.
+   uint64_t rcon() { return x(20, 4); } // Crypto ISE - AES64 round const.
++  uint64_t cf_id() { return (x(25, 7) << 3) + x(12, 3); }
+ 
+   int64_t rvc_imm() { return x(2, 5) + (xs(12, 1) << 5); }
+   int64_t rvc_zimm() { return x(2, 5) + (x(12, 1) << 5); }
+diff --git a/riscv/decode_macros.h b/riscv/decode_macros.h
+index e31da5c1..4902bba3 100644
+--- a/riscv/decode_macros.h
++++ b/riscv/decode_macros.h
+@@ -10,6 +10,8 @@
+ #include "softfloat_types.h"
+ #include "specialize.h"
+ 
++#define READ_FILES(file) (read_files(file))
++
+ // helpful macros, etc
+ #define MMU (*p->get_mmu())
+ #define STATE (*p->get_state())
+diff --git a/riscv/encoding.h b/riscv/encoding.h
+index a7e2d945..a3417896 100644
+--- a/riscv/encoding.h
++++ b/riscv/encoding.h
+@@ -3009,6 +3009,12 @@
+ #define MATCH_ZUNPKD832 0xad700077
+ #define MASK_ZUNPKD832 0xfff0707f
+ 
++/* CX */
++#define MATCH_CX_REG 0xB
++#define MASK_CX_REG 0x7F
++/* End CX */
++
++
+ #define CSR_FFLAGS 0x1
+ #define CSR_FRM 0x2
+ #define CSR_FCSR 0x3
+@@ -3459,6 +3465,13 @@
+ #define CSR_MHPMCOUNTER30H 0xb9e
+ #define CSR_MHPMCOUNTER31H 0xb9f
+ 
++/* CX */
++#define CSR_CX_INDEX 0x800
++#define CSR_CX_STATUS 0x801
++#define CSR_MCX_SELECTOR 0x802 // This should be 0xBC0, but that's in M Mode.
++// Not sure how to properly deal with that. 
++/* End CX */
++
+ #define CAUSE_MISALIGNED_FETCH 0x0
+ #define CAUSE_FETCH_ACCESS 0x1
+ #define CAUSE_ILLEGAL_INSTRUCTION 0x2
+@@ -4894,6 +4907,9 @@ DECLARE_INSN(zunpkd820, MATCH_ZUNPKD820, MASK_ZUNPKD820)
+ DECLARE_INSN(zunpkd830, MATCH_ZUNPKD830, MASK_ZUNPKD830)
+ DECLARE_INSN(zunpkd831, MATCH_ZUNPKD831, MASK_ZUNPKD831)
+ DECLARE_INSN(zunpkd832, MATCH_ZUNPKD832, MASK_ZUNPKD832)
++/* CX */
++DECLARE_INSN(cx_reg, MATCH_CX_REG, MASK_CX_REG)
++/* End CX */
+ #endif
+ #ifdef DECLARE_CSR
+ DECLARE_CSR(fflags, CSR_FFLAGS)
+@@ -5345,6 +5361,12 @@ DECLARE_CSR(mhpmcounter28h, CSR_MHPMCOUNTER28H)
+ DECLARE_CSR(mhpmcounter29h, CSR_MHPMCOUNTER29H)
+ DECLARE_CSR(mhpmcounter30h, CSR_MHPMCOUNTER30H)
+ DECLARE_CSR(mhpmcounter31h, CSR_MHPMCOUNTER31H)
++
++/* CX */
++DECLARE_CSR(cx_index, CSR_CX_INDEX)
++DECLARE_CSR(cx_status, CSR_CX_STATUS)
++DECLARE_CSR(mcx_selector, CSR_MCX_SELECTOR)
++/* end CX */
+ #endif
+ #ifdef DECLARE_CAUSE
+ DECLARE_CAUSE("misaligned fetch", CAUSE_MISALIGNED_FETCH)
+diff --git a/riscv/insn_template.h b/riscv/insn_template.h
+index cead6d7d..79b6d5e2 100644
+--- a/riscv/insn_template.h
++++ b/riscv/insn_template.h
+@@ -10,3 +10,5 @@
+ #include "p_ext_macros.h"
+ #include "v_ext_macros.h"
+ #include <assert.h>
++#include "../../../../zoo/exports.h"
++
+diff --git a/riscv/isa_parser.h b/riscv/isa_parser.h
+index f955e161..971483be 100644
+--- a/riscv/isa_parser.h
++++ b/riscv/isa_parser.h
+@@ -80,6 +80,7 @@ typedef enum {
+   EXT_SMCSRIND,
+   EXT_SSCSRIND,
+   EXT_SMCNTRPMF,
++  EXT_CX,
+   NUM_ISA_EXTENSIONS
+ } isa_extension_t;
+ 
+diff --git a/riscv/processor.cc b/riscv/processor.cc
+index 22e65425..880c747d 100644
+--- a/riscv/processor.cc
++++ b/riscv/processor.cc
+@@ -335,6 +335,12 @@ void state_t::reset(processor_t* const proc, reg_t max_isa)
+   csrmap[CSR_SIE] = std::make_shared<virtualized_csr_t>(proc, nonvirtual_sie, vsie);
+   csrmap[CSR_HIE] = std::make_shared<mie_proxy_csr_t>(proc, CSR_HIE, hip_hie_accr);
+ 
++
++  csrmap[CSR_MCX_SELECTOR] = mcx_selector =  std::make_shared<basic_csr_t>(proc, CSR_MCX_SELECTOR, 0);
++  csrmap[CSR_CX_INDEX] = cx_index = std::make_shared<basic_csr_t>(proc, CSR_CX_INDEX, 0);
++  csrmap[CSR_CX_STATUS] = cx_status = std::make_shared<basic_csr_t>(proc, CSR_CX_STATUS, 0);
++
++
+   csrmap[CSR_MEDELEG] = medeleg = std::make_shared<medeleg_csr_t>(proc, CSR_MEDELEG);
+   csrmap[CSR_MIDELEG] = mideleg = std::make_shared<mideleg_csr_t>(proc, CSR_MIDELEG);
+   const reg_t counteren_mask = (proc->extension_enabled_const(EXT_ZICNTR) ? 0x7UL : 0x0) | (proc->extension_enabled_const(EXT_ZIHPM) ? 0xfffffff8ULL : 0x0);
+diff --git a/riscv/processor.h b/riscv/processor.h
+index a2e42865..981ded11 100644
+--- a/riscv/processor.h
++++ b/riscv/processor.h
+@@ -111,6 +111,11 @@ struct state_t
+   csr_t_p stvec;
+   virtualized_csr_t_p satp;
+   csr_t_p scause;
++  csr_t_p mcx_selector;
++  csr_t_p cx_index;
++  csr_t_p cx_status;
++
++
+ 
+   // When taking a trap into HS-mode, we must access the nonvirtualized HS-mode CSRs directly:
+   csr_t_p nonvirtual_stvec;
+diff --git a/riscv/riscv.mk.in b/riscv/riscv.mk.in
+index 3a0333c5..5e0f95e4 100644
+--- a/riscv/riscv.mk.in
++++ b/riscv/riscv.mk.in
+@@ -134,6 +134,9 @@ riscv_insn_ext_i = \
+ 	fence \
+ 	fence_i \
+ 
++riscv_insn_ext_cx = \
++	cx_reg \
++
+ riscv_insn_ext_a = \
+ 	amoadd_d \
+ 	amoadd_w \
+@@ -1406,6 +1409,7 @@ riscv_insn_ext_zvk = \
+ 
+ riscv_insn_list = \
+ 	$(if $(HAVE_INT128),$(riscv_insn_ext_v),) \
++	$(riscv_insn_ext_cx) \
+ 	$(riscv_insn_ext_a) \
+ 	$(riscv_insn_ext_b) \
+ 	$(riscv_insn_ext_bf16) \
+diff --git a/spike_main/spike.cc b/spike_main/spike.cc
+index 7b28e252..586be1ed 100644
+--- a/spike_main/spike.cc
++++ b/spike_main/spike.cc
+@@ -19,6 +19,8 @@
+ #include <limits>
+ #include <cinttypes>
+ #include "../VERSION"
++#include "../../../../zoo/exports.h"
++
+ 
+ static void help(int exit_code = 1)
+ {
+@@ -467,6 +469,33 @@ int main(int argc, char** argv)
+     }
+   });
+ 
++  parser.option(0, "cxs", 1, [&](const char *s){
++    char copy[100];
++    strcpy(copy, s);
++    char *pt;
++    pt = strtok (copy,",");
++    int32_t i = 0;
++    while (pt != NULL) {
++        int cx = (int32_t)strtoull(pt, 0, 0);
++        if (cx == 0) {
++          cx_funcs[i] = cx_func_addsub;
++          num_cfs[i] = CX_ADDSUB_NUM_FUNCS;
++        } else if (cx == 1) {
++          cx_funcs[i] = cx_func_muldiv;
++          num_cfs[i] = CX_MULDIV_NUM_FUNCS;
++        } else {
++          printf("cx %d not defined in spike.cc\nexiting...\n", cx);
++          exit(0);
++        }
++        pt = strtok (NULL, ",");
++        i++;
++    }
++    for (i; i < MAX_CX_ID; i++) {
++      cx_funcs[i] = cx_func_error;
++      num_cfs[i] = CX_ERROR_NUM_FUNCS;
++    }
++    });
++
+   auto argv1 = parser.parse(argv);
+   std::vector<std::string> htif_args(argv1, (const char*const*)argv + argc);
+ 

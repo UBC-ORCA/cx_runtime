@@ -1,7 +1,11 @@
-#include <stdint.h>
+// #ifdef __cplusplus
+// extern "C" {
+// #endif
 
 #ifndef PARSER_H
 #define PARSER_H
+
+#include <stdint.h>
 
 #define CX_GUID_ADDSUB 3
 #define CX_GUID_MULDIV 7
@@ -17,6 +21,10 @@ typedef struct {
   int32_t num_cxs;
 } cx_config_info_t;
 
-cx_config_info_t read_files(char *path);
+extern cx_config_info_t read_files(char **paths, int32_t num_cxs);
 
 #endif
+
+// #ifdef __cplusplus
+// }
+// #endif

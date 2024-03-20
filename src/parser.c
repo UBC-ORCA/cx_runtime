@@ -16,15 +16,13 @@ static cx_config_info_t gen_cx_config_info_t(cx_config_t *cx_config, int32_t num
   return cx_config_info;
 }
 
-static cx_config_t* readConf(char* filename) {
-  /* TODO: Find the number of cx_config files here */
+static cx_config_t readConf(char* filename) {
 
-  cx_config_t *cx_config = (cx_config_t *) malloc(sizeof(cx_config));
-  const char* file = "/home/bf/research/riscv-tools/cx_runtime/addsub.txt";
-  printf("filename: %s\n", filename);
-  FILE* test_file = fopen(file, "w");
+  cx_config_t cx_config = {0};
+
+  FILE* test_file = fopen(filename, "r");
   if (test_file == NULL) {
-    fprintf(stderr, "open error for %s, errno = %d\n", file, errno);
+    fprintf(stderr, "open error for %s, errno = %d\n", filename, errno);
     exit(0);
   }
 
@@ -38,10 +36,10 @@ static cx_config_t* readConf(char* filename) {
         break;
     }
     if (strstr(id, "cx_guid")) {
-        cx_config->cx_guid = value;
+        cx_config.cx_guid = value;
         cx_guid = 1;
     } else if (strstr(id, "num_states")) {
-        cx_config->num_states = value;
+        cx_config.num_states = value;
         num_states = 1;
     } else {
         printf("Unrecognized input\n");
@@ -59,41 +57,15 @@ static cx_config_t* readConf(char* filename) {
 
 // TODO: there should be another (better) way to do this - note that 
 //       dirnet is not supported with the riscv toolchain
-cx_config_info_t read_files(char *path) 
+cx_config_info_t read_files(char **paths, int32_t num_cxs) 
 {
-  // Unfortunately, qemu can't access host files. This means that the
-  // structs need to be defined in code, or that we shift to using spike
-  // at some point down the road.
-  int32_t num_cxs = 3;
-  // *readConf("addsub.txt");
 
-  cx_config_t static cx_config[] = {
-    {.cx_guid = CX_GUID_ADDSUB, .num_states = 0},
-    {.cx_guid = CX_GUID_MULDIV, .num_states = 3},
-    {.cx_guid = CX_GUID_TEMP,   .num_states = 1025}
-  };
-
-  // int32_t num_cxs = 2;
-  // const char * cx_metadata_files[] = { 
-  //   "addsub.yaml",
-  //   "muldiv.yaml"
-  // };
-
-  // cx_config_t *cx_config = (cx_config_t *) malloc(sizeof(cx_config_t) * num_cxs);
-  // char *new_path = "/home/bf/research/riscv-tools/cx_runtime/cx_metadata/";
-  // for (int32_t i = 0; i < num_cxs; i++) {
-  //   char buf[256];
-  //   snprintf(buf, sizeof(buf), "%s%s", new_path, cx_metadata_files[i]);
-  //   cx_config[i] = *readConf(buf);
-  // }
-  // printf("in parser\n");
+  cx_config_t *cx_config = (cx_config_t *) malloc(sizeof(cx_config_t) * num_cxs);
+  for (int32_t i = 0; i < num_cxs; i++) {
+    cx_config[i] = readConf(paths[i]);
+  }
   
   cx_config_info_t cx_config_info = gen_cx_config_info_t(cx_config, num_cxs);
 
   return cx_config_info;
 }
-
-// int main() {
-//   cx_config_info_t* metadata = read_files("../cx_metadata/");
-//   printf("guid addsub: %d, guid muldiv: %d\n", metadata->cx_config[0].cx_guid, metadata->cx_config[1].cx_guid);
-// }

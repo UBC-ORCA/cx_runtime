@@ -39,7 +39,7 @@ typedef int32_t cxu_state_context_status_t; // per state
 
 // API
 
-void cx_init();
+void cx_init(char** paths, int32_t num_cxs);
 cx_sel_t cx_open(cx_guid_t cx_guid, cx_share_t cx_share);
 cx_sel_t cx_select(cx_sel_t cx_sel);
 void     cx_close(cx_sel_t cx_sel);
