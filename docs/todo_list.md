@@ -1,10 +1,8 @@
 # Short Term Objectives
 
-:x: Create CX_STATUS CSR to keep track of errors (%2.2.2)
+:x: Create CX_STATUS CSR to keep track of errors (%2.2.2) [Needs spike CF_ID errors to be handled]
 
 :x: Check objdump to make sure that inlined functions are actually being inlined
-
-:x: Move structs in cfu_helper to be initialized elsewhere + add padding
 
 # Medium Term Objectives
 
@@ -18,6 +16,8 @@
     should it be a part of `cx_close();`?
 
 # Completed objectives
+
+:white_check_mark: Move structs in cfu_helper to be initialized elsewhere + add padding
 
 :white_check_mark: Define error codes, and use perror instead of printf
 

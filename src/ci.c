@@ -40,6 +40,16 @@ typedef union {
      cx_sel_t idx;
  } cx_selidx_t;
 
+typedef enum {
+    IV,
+    IC,
+    IS,
+    OF,
+    IF,
+    OP,
+    CU
+} cx_error_num_t;
+
 static int32_t NUM_CX_IDS = 0;
 static int32_t NUM_CXUS   = 0;
 
@@ -53,6 +63,29 @@ static inline cx_sel_t gen_cx_sel(cx_id_t cx_id, state_id_t state_id,
                                   .state_id = state_id,
                                   .version = cx_version}};
     return cx_sel.idx;
+}
+
+static inline void cx_write_status(cx_error_t cx_error)
+{
+    cx_error = 1 << cx_error;
+    asm volatile (
+        "        csrs 0x801, %0;\n"
+        :
+        :  "r"  (cx_error)
+        : 
+        );
+    return;
+}
+
+inline cx_error_t cx_read_status()
+{
+    cx_error_t cx_error = 0x0;
+    asm volatile (
+        "        csrr %0, 0x801;\n"
+        :  "=r"  (cx_error)
+        : 
+        );
+    return cx_error;
 }
 
 static inline cx_sel_t write_mcfx_selector(cx_sel_t cx_sel)
@@ -174,6 +207,7 @@ int32_t is_valid_cx_table_sel(cx_sel_t cx_sel)
     return TRUE;
 }
 
+// Can also check the cx_sel_indicies
 int32_t verify_counters()
 {
     int32_t *counters = calloc(NUM_CX_IDS, sizeof(int32_t));
@@ -283,7 +317,7 @@ cx_sel_t cx_open(cx_guid_t cx_guid, cx_share_t cx_share)
     }
 
     if (!is_valid_cx_id(cx_id)) {
-        errno = 135;
+        cx_write_status(IC);
         return -1;
     }
 
@@ -313,7 +347,7 @@ cx_sel_t cx_open(cx_guid_t cx_guid, cx_share_t cx_share)
     } else {
                 
         if (!is_valid_state_id(cx_id, state_id)) {
-            errno = 139;
+            cx_write_status(IS);
             return -1; // No available states for cx_guid 
         }
 
@@ -359,6 +393,8 @@ void cx_close(cx_sel_t cx_sel)
     // then, disable the context
     #if CX_SEL_TABLE
 
+    return;
+
     #else
     
     if (!is_valid_cx_table_sel(cx_sel)) {
@@ -375,7 +411,7 @@ void cx_close(cx_sel_t cx_sel)
     cx_id_t cx_id = ((cx_selidx_t) cx_sel_entry).sel.cx_id;
 
     if (!is_valid_cx_id(cx_id)) {
-        errno = 135;
+        cx_write_status(IC);
         return;
     };
 
@@ -383,6 +419,7 @@ void cx_close(cx_sel_t cx_sel)
 
     if (!verify_counters()) {
         errno = 137;
+        return;
     }
 
     #endif
@@ -391,6 +428,7 @@ void cx_close(cx_sel_t cx_sel)
     if (cx_map[cx_id].num_state_ids > 0) {
         state_id_t state_id = ((cx_selidx_t) cx_sel).sel.state_id;
         if (!is_valid_state_id(cx_id, state_id)) {
+            cx_write_status(IS);
             return;
         }
 
@@ -413,7 +451,7 @@ void cx_close(cx_sel_t cx_sel)
 
         // State must be 0 in the table
         if (((cx_selidx_t) cx_sel_entry).sel.state_id != 0) {
-            errno = 141;
+            cx_write_status(IS);
             return;
         }
 
