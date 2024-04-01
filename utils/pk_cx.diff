@@ -67,10 +67,20 @@ index 4cf9685..7f6d139 100644
  
    csrr a3, mhartid
 diff --git a/pk/pk.c b/pk/pk.c
-index b8c9337..315037e 100644
+index b8c9337..c3aa90e 100644
 --- a/pk/pk.c
 +++ b/pk/pk.c
-@@ -100,6 +100,7 @@ static void run_loaded_program(size_t argc, char** argv, uintptr_t kstack_top)
+@@ -11,6 +11,9 @@
+ #include "flush_icache.h"
+ #include <stdbool.h>
+ 
++#define MCX_TABLE_NUM_ELEMENTS 1024
++#define MCX_TABLE_SIZE MCX_TABLE_NUM_ELEMENTS * sizeof(int)
++
+ elf_info current;
+ long disabled_hart_mask;
+ 
+@@ -100,6 +103,7 @@ static void run_loaded_program(size_t argc, char** argv, uintptr_t kstack_top)
  
    // copy phdrs to user stack
    size_t stack_top = current.stack_top - current.phdr_size;
@@ -78,47 +88,54 @@ index b8c9337..315037e 100644
    memcpy_to_user((void*)stack_top, (void*)current.phdr, current.phdr_size);
    current.phdr = stack_top;
  
-@@ -123,6 +124,16 @@ static void run_loaded_program(size_t argc, char** argv, uintptr_t kstack_top)
-     envp[i] = (void*)stack_top;
-   }
+@@ -140,6 +144,17 @@ static void run_loaded_program(size_t argc, char** argv, uintptr_t kstack_top)
+     {AT_NULL, 0}
+   };
  
-+  int cx_table[1024] = {0};
-+  for (size_t i = 0; i < 1024; i++) {
-+    size_t len = sizeof(int);
-+    stack_top -= len;
-+    // memcpy_to_user((void*)stack_top, &cx_table[i], len);
-+    // cx_table[i] = (void*)stack_top;
-+  }
-+  // printk("stack_size: %08x, stack_bottom: %08x, kstack_top: %08x, stack_top: %08x, final stack_top: %08x\n", stack_size, stack_bottom, current.stack_top, kstack_top, stack_top);
++  // I don't think this is needed - honestly not sure what the point of these
++  // copys to user stack do, as it's done again in STACK_INIT();
 +
++  // int cx_table[MCX_TABLE_NUM_ELEMENTS] = {0};
++  // for (size_t i = 0; i < MCX_TABLE_NUM_ELEMENTS; i++) {
++  //   size_t len = sizeof(int);
++  //   stack_top -= len;
++  //   // memcpy_to_user((void*)stack_top, &cx_table[i], len);
++  //   // cx_table[i] = (void*)stack_top;
++  // }
 +
-   // align stack
-   stack_top &= -sizeof(void*);
- 
-@@ -163,7 +174,11 @@ static void run_loaded_program(size_t argc, char** argv, uintptr_t kstack_top)
+   // place argc, argv, envp, auxp on stack
+   #define PUSH_ARG(type, value) do { \
+     type __tmp = (type)(value); \
+@@ -163,7 +178,13 @@ static void run_loaded_program(size_t argc, char** argv, uintptr_t kstack_top)
        PUSH_ARG(type, aux[i].key); \
        PUSH_ARG(type, aux[i].value); \
      } \
 -  } while (0)
-+    PUSH_ARG(type, 0); /* cx_table[1024] = NULL */ \
-+    for (unsigned i = 0; i < 1024; i++) { \
-+      PUSH_ARG(type, 0); \
++    stack_top -= (MCX_TABLE_NUM_ELEMENTS) * sizeof(type); \
++    stack_top &= -MCX_TABLE_SIZE; \
++    sp = (void*)stack_top; \
++    for (unsigned i = 0; i < MCX_TABLE_NUM_ELEMENTS; i++) { \
++      PUSH_ARG(type, i); \
 +    } \
 +  } while (0)     
  
    STACK_INIT(uintptr_t);
  
-@@ -174,9 +189,12 @@ static void run_loaded_program(size_t argc, char** argv, uintptr_t kstack_top)
+@@ -173,10 +194,17 @@ static void run_loaded_program(size_t argc, char** argv, uintptr_t kstack_top)
+     current.instret0 = rdinstret64();
    }
  
++  // 0x802 is mcx_table
++  write_csr(0x802, stack_top);
++  // stack_top &= -16;
++
    trapframe_t tf;
--  init_tf(&tf, current.entry, stack_top);
-+  init_tf(&tf, current.entry, stack_top - 4096);
+   init_tf(&tf, current.entry, stack_top);
    __riscv_flush_icache();
    write_csr(sscratch, kstack_top);
 +  
-+  // 0x802 is mcx_table
-+  write_csr(0x802, stack_top);
++  // printk("stack_size: %08x, stack_bottom: %08x, kstack_top: %08x, stack_top: %08x, final stack_top: %08x\n", stack_size, stack_bottom, current.stack_top, kstack_top, stack_top);
++
    start_user(&tf);
  }
  
