@@ -1,0 +1,124 @@
+diff --git a/machine/encoding.h b/machine/encoding.h
+index a9de9ef..208ec9b 100644
+--- a/machine/encoding.h
++++ b/machine/encoding.h
+@@ -3183,6 +3183,7 @@
+ #define CSR_MHPMCOUNTER29H 0xb9d
+ #define CSR_MHPMCOUNTER30H 0xb9e
+ #define CSR_MHPMCOUNTER31H 0xb9f
++#define CSR_MCX_TABLE 0x802
+ #define CAUSE_MISALIGNED_FETCH 0x0
+ #define CAUSE_FETCH_ACCESS 0x1
+ #define CAUSE_ILLEGAL_INSTRUCTION 0x2
+@@ -4810,6 +4811,8 @@ DECLARE_CSR(mhpmcounter28h, CSR_MHPMCOUNTER28H)
+ DECLARE_CSR(mhpmcounter29h, CSR_MHPMCOUNTER29H)
+ DECLARE_CSR(mhpmcounter30h, CSR_MHPMCOUNTER30H)
+ DECLARE_CSR(mhpmcounter31h, CSR_MHPMCOUNTER31H)
++DECLARE_CSR(mcx_table, CSR_MCX_TABLE)
++
+ #endif
+ #ifdef DECLARE_CAUSE
+ DECLARE_CAUSE("misaligned fetch", CAUSE_MISALIGNED_FETCH)
+@@ -7705,6 +7708,7 @@ DECLARE_CAUSE("store guest page fault", CAUSE_STORE_GUEST_PAGE_FAULT)
+ #define CSR_MHPMCOUNTER29H 0xb9d
+ #define CSR_MHPMCOUNTER30H 0xb9e
+ #define CSR_MHPMCOUNTER31H 0xb9f
++#define CSR_MCX_TABLE 0x802
+ #define CAUSE_MISALIGNED_FETCH 0x0
+ #define CAUSE_FETCH_ACCESS 0x1
+ #define CAUSE_ILLEGAL_INSTRUCTION 0x2
+@@ -9332,6 +9336,7 @@ DECLARE_CSR(mhpmcounter28h, CSR_MHPMCOUNTER28H)
+ DECLARE_CSR(mhpmcounter29h, CSR_MHPMCOUNTER29H)
+ DECLARE_CSR(mhpmcounter30h, CSR_MHPMCOUNTER30H)
+ DECLARE_CSR(mhpmcounter31h, CSR_MHPMCOUNTER31H)
++DECLARE_CSR(mcx_table, CSR_MCX_TABLE)
+ #endif
+ #ifdef DECLARE_CAUSE
+ DECLARE_CAUSE("misaligned fetch", CAUSE_MISALIGNED_FETCH)
+@@ -12227,6 +12232,7 @@ DECLARE_CAUSE("store guest page fault", CAUSE_STORE_GUEST_PAGE_FAULT)
+ #define CSR_MHPMCOUNTER29H 0xb9d
+ #define CSR_MHPMCOUNTER30H 0xb9e
+ #define CSR_MHPMCOUNTER31H 0xb9f
++#define CSR_MCX_TABLE 0x802
+ #define CAUSE_MISALIGNED_FETCH 0x0
+ #define CAUSE_FETCH_ACCESS 0x1
+ #define CAUSE_ILLEGAL_INSTRUCTION 0x2
+@@ -13854,6 +13860,7 @@ DECLARE_CSR(mhpmcounter28h, CSR_MHPMCOUNTER28H)
+ DECLARE_CSR(mhpmcounter29h, CSR_MHPMCOUNTER29H)
+ DECLARE_CSR(mhpmcounter30h, CSR_MHPMCOUNTER30H)
+ DECLARE_CSR(mhpmcounter31h, CSR_MHPMCOUNTER31H)
++DECLARE_CSR(mcx_table, CSR_MCX_TABLE)
+ #endif
+ #ifdef DECLARE_CAUSE
+ DECLARE_CAUSE("misaligned fetch", CAUSE_MISALIGNED_FETCH)
+diff --git a/machine/mentry.S b/machine/mentry.S
+index 4cf9685..7f6d139 100644
+--- a/machine/mentry.S
++++ b/machine/mentry.S
+@@ -272,6 +272,10 @@ do_reset:
+   csrr t1, mtvec
+ 1:bne t0, t1, 1b
+ 
++  # allows us to allocate 4096 bits for the cx_table
++  
++  # la t0, 0x7FFFFF00
++  # csrw 0x802, t0
+   la sp, stacks + RISCV_PGSIZE - MENTRY_FRAME_SIZE
+ 
+   csrr a3, mhartid
+diff --git a/pk/pk.c b/pk/pk.c
+index b8c9337..315037e 100644
+--- a/pk/pk.c
++++ b/pk/pk.c
+@@ -100,6 +100,7 @@ static void run_loaded_program(size_t argc, char** argv, uintptr_t kstack_top)
+ 
+   // copy phdrs to user stack
+   size_t stack_top = current.stack_top - current.phdr_size;
++
+   memcpy_to_user((void*)stack_top, (void*)current.phdr, current.phdr_size);
+   current.phdr = stack_top;
+ 
+@@ -123,6 +124,16 @@ static void run_loaded_program(size_t argc, char** argv, uintptr_t kstack_top)
+     envp[i] = (void*)stack_top;
+   }
+ 
++  int cx_table[1024] = {0};
++  for (size_t i = 0; i < 1024; i++) {
++    size_t len = sizeof(int);
++    stack_top -= len;
++    // memcpy_to_user((void*)stack_top, &cx_table[i], len);
++    // cx_table[i] = (void*)stack_top;
++  }
++  // printk("stack_size: %08x, stack_bottom: %08x, kstack_top: %08x, stack_top: %08x, final stack_top: %08x\n", stack_size, stack_bottom, current.stack_top, kstack_top, stack_top);
++
++
+   // align stack
+   stack_top &= -sizeof(void*);
+ 
+@@ -163,7 +174,11 @@ static void run_loaded_program(size_t argc, char** argv, uintptr_t kstack_top)
+       PUSH_ARG(type, aux[i].key); \
+       PUSH_ARG(type, aux[i].value); \
+     } \
+-  } while (0)
++    PUSH_ARG(type, 0); /* cx_table[1024] = NULL */ \
++    for (unsigned i = 0; i < 1024; i++) { \
++      PUSH_ARG(type, 0); \
++    } \
++  } while (0)     
+ 
+   STACK_INIT(uintptr_t);
+ 
+@@ -174,9 +189,12 @@ static void run_loaded_program(size_t argc, char** argv, uintptr_t kstack_top)
+   }
+ 
+   trapframe_t tf;
+-  init_tf(&tf, current.entry, stack_top);
++  init_tf(&tf, current.entry, stack_top - 4096);
+   __riscv_flush_icache();
+   write_csr(sscratch, kstack_top);
++  
++  // 0x802 is mcx_table
++  write_csr(0x802, stack_top);
+   start_user(&tf);
+ }
+ 
