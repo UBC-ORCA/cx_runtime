@@ -4,6 +4,8 @@
 
 :x: Check objdump to make sure that inlined functions are actually being inlined
 
+:x: replace instances of setting errno with first getting the local errno with `__errno_location(void)`.
+
 # Medium Term Objectives
 
 :x: Trap on write to mcx_selector, so that it writes to the correct address (0xBC0 instead of 0x802)
