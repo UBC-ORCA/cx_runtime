@@ -38,6 +38,75 @@ index 73e52030..52eafed1 100755
  
  else
    as_fn_error $? "libpthread is required" "$LINENO" 5
+diff --git a/riscv/csrs.cc b/riscv/csrs.cc
+index e3b5ad49..7a9a9050 100644
+--- a/riscv/csrs.cc
++++ b/riscv/csrs.cc
+@@ -2,6 +2,7 @@
+ 
+ // For std::any_of
+ #include <algorithm>
++#include <iostream>
+ 
+ #include "csrs.h"
+ // For processor_t:
+@@ -1688,3 +1689,25 @@ bool smcntrpmf_csr_t::unlogged_write(const reg_t val) noexcept {
+   prev_val = read();
+   return masked_csr_t::unlogged_write(val);
+ }
++
++mcx_selector_csr_t::mcx_selector_csr_t(processor_t* const proc, const reg_t addr):
++  basic_csr_t(proc, addr, 0) {
++}
++
++// This needs to be writeable when called from cx_index register; otherwise,
++// it's only writeable in M mode. 
++void mcx_selector_csr_t::verify_permissions(insn_t insn, bool write) const {
++  std::cout << std::hex << "mcx_selector: " << STATE.mcx_selector->read() << "\n";
++}
++
++cx_index_csr_t::cx_index_csr_t(processor_t* const proc, const reg_t addr):
++  basic_csr_t(proc, addr, 0),
++  val(0) {
++}
++
++bool cx_index_csr_t::unlogged_write(const reg_t cx_index) noexcept {
++  this->val = cx_index;
++  uint32_t cx_sel = proc->get_mmu()->guest_load<uint32_t>(STATE.mcx_table->read() + cx_index * 4);
++  STATE.mcx_selector->write(cx_sel);
++  return true;
++}
+diff --git a/riscv/csrs.h b/riscv/csrs.h
+index efa7f10a..46b20a8d 100644
+--- a/riscv/csrs.h
++++ b/riscv/csrs.h
+@@ -842,4 +842,24 @@ class smcntrpmf_csr_t : public masked_csr_t {
+  private:
+   std::optional<reg_t> prev_val;
+ };
+-#endif
++
++class mcx_selector_csr_t: public basic_csr_t {
++ public:
++  mcx_selector_csr_t(processor_t* const proc, const reg_t addr);
++  virtual void verify_permissions(insn_t insn, bool write) const override;
++};
++
++typedef std::shared_ptr<mcx_selector_csr_t> mcx_selector_csr_t_p;
++
++class cx_index_csr_t: public basic_csr_t {
++ public:
++  cx_index_csr_t(processor_t* const proc, const reg_t addr);
++ protected:
++  virtual bool unlogged_write(const reg_t val) noexcept override;
++ private:
++  reg_t val;
++};
++
++typedef std::shared_ptr<cx_index_csr_t> cx_index_csr_t_p;
++
++#endif
+\ No newline at end of file
 diff --git a/riscv/decode.h b/riscv/decode.h
 index cd1c0a12..3b4f22ac 100644
 --- a/riscv/decode.h
@@ -72,7 +141,7 @@ index e31da5c1..4902bba3 100644
  #define MMU (*p->get_mmu())
  #define STATE (*p->get_state())
 diff --git a/riscv/encoding.h b/riscv/encoding.h
-index a7e2d945..a3417896 100644
+index a7e2d945..cc1197e7 100644
 --- a/riscv/encoding.h
 +++ b/riscv/encoding.h
 @@ -3009,6 +3009,12 @@
@@ -88,21 +157,22 @@ index a7e2d945..a3417896 100644
  #define CSR_FFLAGS 0x1
  #define CSR_FRM 0x2
  #define CSR_FCSR 0x3
-@@ -3459,6 +3465,13 @@
+@@ -3459,6 +3465,14 @@
  #define CSR_MHPMCOUNTER30H 0xb9e
  #define CSR_MHPMCOUNTER31H 0xb9f
  
 +/* CX */
 +#define CSR_CX_INDEX 0x800
 +#define CSR_CX_STATUS 0x801
-+#define CSR_MCX_SELECTOR 0x802 // This should be 0xBC0, but that's in M Mode.
++#define CSR_MCX_SELECTOR 0xBC0 // This should be 0xBC0, but that's in M Mode.
++#define CSR_MCX_TABLE 0x802
 +// Not sure how to properly deal with that. 
 +/* End CX */
 +
  #define CAUSE_MISALIGNED_FETCH 0x0
  #define CAUSE_FETCH_ACCESS 0x1
  #define CAUSE_ILLEGAL_INSTRUCTION 0x2
-@@ -4894,6 +4907,9 @@ DECLARE_INSN(zunpkd820, MATCH_ZUNPKD820, MASK_ZUNPKD820)
+@@ -4894,6 +4908,9 @@ DECLARE_INSN(zunpkd820, MATCH_ZUNPKD820, MASK_ZUNPKD820)
  DECLARE_INSN(zunpkd830, MATCH_ZUNPKD830, MASK_ZUNPKD830)
  DECLARE_INSN(zunpkd831, MATCH_ZUNPKD831, MASK_ZUNPKD831)
  DECLARE_INSN(zunpkd832, MATCH_ZUNPKD832, MASK_ZUNPKD832)
@@ -112,7 +182,7 @@ index a7e2d945..a3417896 100644
  #endif
  #ifdef DECLARE_CSR
  DECLARE_CSR(fflags, CSR_FFLAGS)
-@@ -5345,6 +5361,12 @@ DECLARE_CSR(mhpmcounter28h, CSR_MHPMCOUNTER28H)
+@@ -5345,6 +5362,13 @@ DECLARE_CSR(mhpmcounter28h, CSR_MHPMCOUNTER28H)
  DECLARE_CSR(mhpmcounter29h, CSR_MHPMCOUNTER29H)
  DECLARE_CSR(mhpmcounter30h, CSR_MHPMCOUNTER30H)
  DECLARE_CSR(mhpmcounter31h, CSR_MHPMCOUNTER31H)
@@ -121,6 +191,7 @@ index a7e2d945..a3417896 100644
 +DECLARE_CSR(cx_index, CSR_CX_INDEX)
 +DECLARE_CSR(cx_status, CSR_CX_STATUS)
 +DECLARE_CSR(mcx_selector, CSR_MCX_SELECTOR)
++DECLARE_CSR(mcx_table, CSR_MCX_TABLE)
 +/* end CX */
  #endif
  #ifdef DECLARE_CAUSE
@@ -148,38 +219,37 @@ index f955e161..971483be 100644
  } isa_extension_t;
  
 diff --git a/riscv/processor.cc b/riscv/processor.cc
-index 22e65425..880c747d 100644
+index 22e65425..6acfce2e 100644
 --- a/riscv/processor.cc
 +++ b/riscv/processor.cc
-@@ -335,6 +335,12 @@ void state_t::reset(processor_t* const proc, reg_t max_isa)
+@@ -335,6 +335,11 @@ void state_t::reset(processor_t* const proc, reg_t max_isa)
    csrmap[CSR_SIE] = std::make_shared<virtualized_csr_t>(proc, nonvirtual_sie, vsie);
    csrmap[CSR_HIE] = std::make_shared<mie_proxy_csr_t>(proc, CSR_HIE, hip_hie_accr);
  
-+
-+  csrmap[CSR_MCX_SELECTOR] = mcx_selector =  std::make_shared<basic_csr_t>(proc, CSR_MCX_SELECTOR, 0);
-+  csrmap[CSR_CX_INDEX] = cx_index = std::make_shared<basic_csr_t>(proc, CSR_CX_INDEX, 0);
++  csrmap[CSR_MCX_SELECTOR] = mcx_selector = std::make_shared<mcx_selector_csr_t>(proc, CSR_MCX_SELECTOR);
++  csrmap[CSR_MCX_TABLE] = mcx_table = std::make_shared<basic_csr_t>(proc, CSR_MCX_TABLE, 0); // storing the address of the struct
++  csrmap[CSR_CX_INDEX] = cx_index = std::make_shared<cx_index_csr_t>(proc, CSR_CX_INDEX);
 +  csrmap[CSR_CX_STATUS] = cx_status = std::make_shared<basic_csr_t>(proc, CSR_CX_STATUS, 0);
-+
 +
    csrmap[CSR_MEDELEG] = medeleg = std::make_shared<medeleg_csr_t>(proc, CSR_MEDELEG);
    csrmap[CSR_MIDELEG] = mideleg = std::make_shared<mideleg_csr_t>(proc, CSR_MIDELEG);
    const reg_t counteren_mask = (proc->extension_enabled_const(EXT_ZICNTR) ? 0x7UL : 0x0) | (proc->extension_enabled_const(EXT_ZIHPM) ? 0xfffffff8ULL : 0x0);
 diff --git a/riscv/processor.h b/riscv/processor.h
-index a2e42865..981ded11 100644
+index a2e42865..b21ed3e4 100644
 --- a/riscv/processor.h
 +++ b/riscv/processor.h
-@@ -111,6 +111,11 @@ struct state_t
-   csr_t_p stvec;
+@@ -112,6 +112,11 @@ struct state_t
    virtualized_csr_t_p satp;
    csr_t_p scause;
-+  csr_t_p mcx_selector;
-+  csr_t_p cx_index;
+ 
++  csr_t_p mcx_table;
++  mcx_selector_csr_t_p mcx_selector;
++  cx_index_csr_t_p cx_index;
 +  csr_t_p cx_status;
 +
-+
- 
    // When taking a trap into HS-mode, we must access the nonvirtualized HS-mode CSRs directly:
    csr_t_p nonvirtual_stvec;
+   csr_t_p nonvirtual_scause;
 diff --git a/riscv/riscv.mk.in b/riscv/riscv.mk.in
 index 3a0333c5..5e0f95e4 100644
 --- a/riscv/riscv.mk.in
