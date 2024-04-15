@@ -6,7 +6,7 @@
 
 :x: application alternating between 2 different CXUs / contexts
 
-:x: simple ABI, manually written & inserted into the code
+:white_check_mark: simple ABI, manually written & inserted into the code
 
 
 # Long Term
@@ -20,13 +20,13 @@
 
 :x: ideally, if possible, the application is written in a portable way so it looks the same no matter which mode is used (U/S or M).
 
-:x: an ABI allowing proper CXU selection across function calls and library boundaries
+:white_check_mark: an ABI allowing proper CXU selection across function calls and library boundaries
 
 :x: LLVM or GCC modified to follow the ABI
 
 :white_check_mark: intrinsics or assembly-level changes to allow arbitrary CXU custom instructions to be generated and disassembled
 
-:x: a user-level API that interfaces with OS-level kernel calls to allocate CXUs and Contexts, define contents of scx_table
+:white_check_mark: a user-level API that interfaces with OS-level kernel calls to allocate CXUs and Contexts, define contents of scx_table
 
 :x: Linux or FreeRTOS or Zephyr changes in S-mode to manipulate scx_table, ensuring contents of table are fully protected from manipulation by the U-mode application (ie, the page is not writable, mapped as read-only in the memory space of the application)
 
