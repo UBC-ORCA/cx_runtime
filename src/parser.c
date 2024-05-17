@@ -16,16 +16,20 @@ static cx_config_info_t gen_cx_config_info_t(cx_config_t *cx_config, int32_t num
   return cx_config_info;
 }
 
-static cx_config_t* readConf(char* filename) {
-  /* TODO: Find the number of cx_config files here */
+static cx_config_t readConf(char* filename) {
 
-  cx_config_t *cx_config = (cx_config_t *) malloc(sizeof(cx_config));
-  const char* file = "/home/bf/research/riscv-tools/cx_runtime/cx_metadata/addsub.txt";
-  FILE* test_file = fopen(file, "r+");
-  printf("filename: %s\n", filename);
+  cx_config_t cx_config = {0};
+
+  FILE* test_file = fopen(filename, "r");
   if (test_file == NULL) {
-    fprintf(stderr, "open error for %s, errno = %d\n", file, errno);
-    exit(0);
+    fprintf(stderr, "open error for %s, errno = %d\n", filename, errno);
+    
+    // libraries don't get to exit from processes. We should be using 
+    // a fatal error function. 
+    
+    // THERE SHOULD BE A SINGLE EXIT, AND IT SHOULD BE IN A UTILITY FILE 
+    // FILE.
+    exit(1);
   }
 
   int cx_guid = 0;
@@ -38,10 +42,10 @@ static cx_config_t* readConf(char* filename) {
         break;
     }
     if (strstr(id, "cx_guid")) {
-        cx_config->cx_guid = value;
+        cx_config.cx_guid = value;
         cx_guid = 1;
     } else if (strstr(id, "num_states")) {
-        cx_config->num_states = value;
+        cx_config.num_states = value;
         num_states = 1;
     } else {
         printf("Unrecognized input\n");
@@ -50,8 +54,10 @@ static cx_config_t* readConf(char* filename) {
 
   fclose(test_file);
 
+  // TODO: Rename num_states here
   if (cx_guid == 0 || num_states == 0) {
       printf("Could not find both cx_guid and num_states.\n");
+      // Should call global exit function.
       exit(0);
   }
   return cx_config;
@@ -59,39 +65,15 @@ static cx_config_t* readConf(char* filename) {
 
 // TODO: there should be another (better) way to do this - note that 
 //       dirnet is not supported with the riscv toolchain
-cx_config_info_t read_files(char *path) 
+cx_config_info_t read_files(char **paths, int32_t num_cxs) 
 {
-  // Unfortunately, qemu can't access host files. This means that the
-  // structs need to be defined in code, or that we shift to using spike
-  // at some point down the road.
 
-  int32_t num_cxs = 2;
-  cx_config_t static cx_config[] = {
-    {.cx_guid = CX_GUID_ADDSUB, .num_states = 3},
-    {.cx_guid = CX_GUID_MULDIV, .num_states = 2}
-  };
-
-  // int32_t num_cxs = 2;
-  // const char * cx_metadata_files[] = { 
-  //   "addsub.yaml",
-  //   "muldiv.yaml"
-  // };
-
-  // cx_config_t *cx_config = (cx_config_t *) malloc(sizeof(cx_config_t) * num_cxs);
-  // char *new_path = "/home/bf/research/riscv-tools/cx_runtime/cx_metadata/";
-  // for (int32_t i = 0; i < num_cxs; i++) {
-  //   char buf[256];
-  //   snprintf(buf, sizeof(buf), "%s%s", new_path, cx_metadata_files[i]);
-  //   cx_config[i] = *readConf(buf);
-  // }
-  // printf("in parser\n");
+  cx_config_t *cx_config = (cx_config_t *) malloc(sizeof(cx_config_t) * num_cxs);
+  for (int32_t i = 0; i < num_cxs; i++) {
+    cx_config[i] = readConf(paths[i]);
+  }
   
   cx_config_info_t cx_config_info = gen_cx_config_info_t(cx_config, num_cxs);
 
   return cx_config_info;
 }
-
-// int main() {
-//   cx_config_info_t* metadata = read_files("../cx_metadata/");
-//   printf("guid addsub: %d, guid muldiv: %d\n", metadata->cx_config[0].cx_guid, metadata->cx_config[1].cx_guid);
-// }

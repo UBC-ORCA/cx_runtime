@@ -15,6 +15,8 @@ typedef int32_t cx_share_t;      // context sharing permissions
 typedef int32_t cx_sel_t;        // hart: CX selector (value (No CX Table) or index
                                  //       (when there is a CX Table))
 
+typedef int32_t cx_error_t;      // 
+
 typedef int32_t cxu_state_context_status_t; // per state    
 
 
@@ -39,10 +41,11 @@ typedef int32_t cxu_state_context_status_t; // per state
 
 // API
 
-void cx_init();
+void cx_init(char** paths, int32_t num_cxs);
 cx_sel_t cx_open(cx_guid_t cx_guid, cx_share_t cx_share);
 cx_sel_t cx_select(cx_sel_t cx_sel);
 void     cx_close(cx_sel_t cx_sel);
+cx_error_t cx_read_status(void);
 void cx_deselect_and_close(cx_sel_t cx_sel);
 
 #endif

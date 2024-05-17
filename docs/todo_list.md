@@ -1,12 +1,14 @@
 # Short Term Objectives
 
-:x: Create CX_STATUS CSR to keep track of errors (%2.2.2)
+:x: move the data structures with the free lists in ci.c to pk, so that the "kernel" can handle the syscall to _cx_open, _cx_sel, and _cx_close
 
-:x: Define error codes, and use perror instead of printf
+:x: Trap on write to mcx_selector, so that it writes to the correct address (0xBC0 instead of 0x802)
+
+:x: Create CX_STATUS CSR to keep track of errors (%2.2.2) [Needs spike CF_ID errors to be handled]
 
 :x: Check objdump to make sure that inlined functions are actually being inlined
 
-:x: Move structs in cfu_helper to be initialized elsewhere + add padding
+:x: replace instances of setting errno with first getting the local errno with `__errno_location(void)`.
 
 # Medium Term Objectives
 
@@ -18,6 +20,10 @@
     should it be a part of `cx_close();`?
 
 # Completed objectives
+
+:white_check_mark: Move structs in cfu_helper to be initialized elsewhere + add padding
+
+:white_check_mark: Define error codes, and use perror instead of printf
 
 :white_check_mark: Move cx's to zoo directory
 

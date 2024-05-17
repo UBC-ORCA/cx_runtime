@@ -20,6 +20,10 @@
 
 typedef int32_t (*(*cx_func_stub_t)) (int32_t, int32_t);
 
-int32_t (*cx_func_error[]) (int32_t, int32_t) = {0};
+extern int32_t (*cx_func_error[]) (int32_t, int32_t);
+
+extern cx_func_stub_t cx_funcs[MAX_CX_ID];
+
+extern int32_t num_cfs[MAX_CX_ID];
 
 #endif // EXPORTS_H

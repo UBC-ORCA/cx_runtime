@@ -60,7 +60,11 @@ void my_cx_test()
 
 int main()
 {
-    cx_init();
+    /* RISCV gcc does not support dirnet.h */
+    int32_t const num_cxs = 2;
+    char *cx_yamls[2] = {"/home/bf/research/riscv-tools/cx_runtime/zoo/addsub/addsub.yaml", 
+                         "/home/bf/research/riscv-tools/cx_runtime/zoo/muldiv/muldiv.yaml"};
+    cx_init(cx_yamls, num_cxs);
     cx_select( CX_LEGACY ); // ABI rule 1
     my_cx_test();
     return 0;
