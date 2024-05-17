@@ -23,7 +23,13 @@ static cx_config_t readConf(char* filename) {
   FILE* test_file = fopen(filename, "r");
   if (test_file == NULL) {
     fprintf(stderr, "open error for %s, errno = %d\n", filename, errno);
-    exit(0);
+    
+    // libraries don't get to exit from processes. We should be using 
+    // a fatal error function. 
+    
+    // THERE SHOULD BE A SINGLE EXIT, AND IT SHOULD BE IN A UTILITY FILE 
+    // FILE.
+    exit(1);
   }
 
   int cx_guid = 0;
@@ -48,8 +54,10 @@ static cx_config_t readConf(char* filename) {
 
   fclose(test_file);
 
+  // TODO: Rename num_states here
   if (cx_guid == 0 || num_states == 0) {
       printf("Could not find both cx_guid and num_states.\n");
+      // Should call global exit function.
       exit(0);
   }
   return cx_config;
