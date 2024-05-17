@@ -1,8 +1,8 @@
 .PHONY: clean all temp 
 
 # CC = ${RISCV}/llvm/build-linux/bin/clang
-CC = ${RISCV}/riscv/bin/riscv32-unknown-elf-gcc
-AR = ${RISCV}/riscv/bin/riscv32-unknown-elf-ar
+CC = ${RISCV}riscv32-unknown-linux-gnu-gcc
+AR = ${RISCV}riscv32-unknown-linux-gnu-ar
 
 CCX86 = gcc
 ARX86 = ar
@@ -79,12 +79,14 @@ example: examples/example.c $(LDIR)/libci.so
 
 ###########   Running on different emulators   ###########
 qemu: example
-	${RISCV}/riscv-gnu-toolchain/qemu/build/qemu-riscv32 ./$^
-# -virtfs local,path=/home/bf/research/riscv-tools/cx_runtime/,mount_tag=host0,security_model=passthrough,id=host0
+	${RISCV}/riscv-gnu-toolchain/qemu/build/riscv32-softmmu/qemu-system-riscv32 -nographic -machine virt \
+	-kernel ~/Documents/linux_rv32/linux/arch/riscv/boot/Image \
+	-initrd ~/Documents/linux_rv32/initramfs/initramfs.cpio.gz \
+	-append "console=ttyS0"
 
 ### TODO: Modify spike to execute cx instructions
 spike: example
-	${RISCV}/riscv-gnu-toolchain/spike/build/spike --cxs=0,1 --isa=rv32imav ${RISCV}/riscv-gnu-toolchain/pk/build/pk $^
+	${RISCV}/riscv-gnu-toolchain/spike/build/spike --cxs=0,1 --isa=rv32imav --dump-dts ${RISCV}/riscv-gnu-toolchain/pk/build/pk $^
 # ${RISCV}/riscv-gnu-toolchain/pk/build/pk $^
 
 
