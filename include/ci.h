@@ -5,7 +5,7 @@
 
 // TYPDEFS
 
-typedef int64_t cx_guid_t;       // global: CX ID, a 128b GUID
+typedef int32_t cx_guid_t;       // global: CX ID, a 128b GUID
 typedef int32_t cxu_guid_t;      // cxu package global name
 typedef int32_t cx_id_t;         // system: CXU index
 
@@ -17,7 +17,7 @@ typedef int32_t cx_sel_t;        // hart: CX selector (value (No CX Table) or in
 
 typedef int32_t cx_error_t;      // 
 
-typedef int32_t cxu_state_context_status_t; // per state    
+typedef int32_t cxu_sctx_t;      // per state    
 
 
 // ABI
@@ -41,11 +41,11 @@ typedef int32_t cxu_state_context_status_t; // per state
 
 // API
 
-void cx_init(char** paths, int32_t num_cxs);
-cx_sel_t cx_open(cx_guid_t cx_guid, cx_share_t cx_share);
-cx_sel_t cx_select(cx_sel_t cx_sel);
-void     cx_close(cx_sel_t cx_sel);
+void       cx_init(void);
+cx_sel_t   cx_open(cx_guid_t cx_guid, cx_share_t cx_share);
+cx_sel_t   cx_sel(cx_sel_t cx_sel);
+void       cx_close(cx_sel_t cx_sel);
 cx_error_t cx_read_status(void);
-void cx_deselect_and_close(cx_sel_t cx_sel);
+void       cx_deselect_and_close(cx_sel_t cx_sel);
 
 #endif

@@ -25,7 +25,7 @@ cx_libraries := $(BDIR)/addsub.o $(BDIR)/muldiv.o
 cx_helpers := $(QEMU-BDIR)/addsub_func.o $(QEMU-BDIR)/muldiv_func.o 
 qemu_objects := $(cx_helpers) $(QEMU-BDIR)/exports.o
 
-all: $(QEMU-LDIR)/libmcx_selector.so $(LDIR)/libci.so $(cx_libraries)
+all: $(QEMU-LDIR)/libmcx_selector.so $(LDIR)/libci.a $(cx_libraries)
 
 
 ###########   Qemu functionality   ###########
@@ -49,7 +49,7 @@ $(QEMU-LDIR):
 
 
 ###########   Building cx runtime   ###########
-$(LDIR)/libci.so: $(cx_objects) | $(LDIR)
+$(LDIR)/libci.a: $(cx_objects) | $(LDIR)
 	$(AR) -rcs $@ $(cx_objects)
 
 $(BDIR)/%.o : $(SRC)/%.c | $(LDIR)
@@ -73,7 +73,7 @@ $(BDIR)/parser.o: $(SRC)/parser.c $(IDIR)/parser.h | $(LDIR)
 	$(CC) -c $< -o $@
 
 ###########   Building Executeable   ###########
-example: examples/example.c $(LDIR)/libci.so
+example: examples/example.c $(LDIR)/libci.a
 	$(CC) -march=rv32imav -mabi=ilp32 $< $(cx_libraries) -L$(LDIR) -lci -O2 -o example
 
 
@@ -93,13 +93,13 @@ spike: example
 ###########   tests   ###########
 test: stateless_test stateful_test cx_table_test
 
-stateless_test: $(TEST)/stateless_test.c $(LDIR)/libci.so
+stateless_test: $(TEST)/stateless_test.c $(LDIR)/libci.a
 	$(CC) -march=rv32imav -mabi=ilp32 $< $(cx_libraries) -L$(LDIR) -lci -O2 -o $@
 
-stateful_test: $(TEST)/stateful_test.c $(LDIR)/libci.so
+stateful_test: $(TEST)/stateful_test.c $(LDIR)/libci.a
 	$(CC) -march=rv32imav -mabi=ilp32 $< $(cx_libraries) -L$(LDIR) -lci -O2 -o $@
 
-cx_table_test: $(TEST)/cx_table_test.c $(LDIR)/libci.so
+cx_table_test: $(TEST)/cx_table_test.c $(LDIR)/libci.a
 	$(CC) -march=rv32imav -mabi=ilp32 $< $(cx_libraries) -L$(LDIR) -lci -O2 -o $@
 
 ###########   Clean build   ###########
