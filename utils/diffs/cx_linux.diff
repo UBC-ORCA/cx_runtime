@@ -9,52 +9,72 @@ index 464b34a08f51..64a2bfedd213 100644
 +obj-y           += cx_sys/
 +
 diff --git a/include/linux/sched.h b/include/linux/sched.h
-index 292c31697248..fd113fe7d7dd 100644
+index 292c31697248..49fd0ec42054 100644
 --- a/include/linux/sched.h
 +++ b/include/linux/sched.h
-@@ -743,6 +743,16 @@ struct kmap_ctrl {
+@@ -39,6 +39,8 @@
+ #include <linux/livepatch_sched.h>
+ #include <asm/kmap_size.h>
+ 
++#include <linux/queue.h>
++
+ /* task_struct member predeclarations (sorted alphabetically): */
+ struct audit_context;
+ struct bio_list;
+@@ -743,6 +745,21 @@ struct kmap_ctrl {
  #endif
  };
  
-+#define NUM_CX 2
++#define NUM_CX 3
 +#define CX_NUM_STATES 2
 +typedef struct {
 +  int cx_guid;
 +  int num_states;
-+  int avail_state_ids[2];
++  int counter;
++  queue_t *avail_state_ids;
 +} cx_entry_t;
++
++// typedef struct {
++//   queue_t *avail_state_ids;
++// } cxu_state_info_t;
 +
 +// struct cx_entry_t* cx_map_t;
 +
  struct task_struct {
  #ifdef CONFIG_THREAD_INFO_IN_TASK
  	/*
-@@ -1544,6 +1554,10 @@ struct task_struct {
+@@ -1544,6 +1561,13 @@ struct task_struct {
  	struct user_event_mm		*user_event_mm;
  #endif
  
-+	int *mcx_table;
 +	int cx_status;
++	int *mcx_table;
++	queue_t *cx_table_avail_indices;
++	
++	// TODO: This shouldn't be here - should be in the device_struct.
 +	cx_entry_t cx_map[NUM_CX];
 +	
  	/*
  	 * New fields for task_struct should be added above here, so that
  	 * they are included in the randomized portion of task_struct.
 diff --git a/include/linux/syscalls.h b/include/linux/syscalls.h
-index fd9d12de7e92..e96cabf1f6eb 100644
+index fd9d12de7e92..11e989aa5a6a 100644
 --- a/include/linux/syscalls.h
 +++ b/include/linux/syscalls.h
-@@ -1279,4 +1279,5 @@ int __sys_getsockopt(int fd, int level, int optname, char __user *optval,
+@@ -1279,4 +1279,8 @@ int __sys_getsockopt(int fd, int level, int optname, char __user *optval,
  		int __user *optlen);
  int __sys_setsockopt(int fd, int level, int optname, char __user *optval,
  		int optlen);
-+long sys_cx_open(void);
++
++void sys_cx_init(void);
++long sys_cx_open(int cx_guid);
++long sys_cx_close(int cx_sel);
  #endif
 diff --git a/include/uapi/asm-generic/unistd.h b/include/uapi/asm-generic/unistd.h
-index 756b013fb832..a7eb572e5e93 100644
+index 756b013fb832..b757bc7a3fe6 100644
 --- a/include/uapi/asm-generic/unistd.h
 +++ b/include/uapi/asm-generic/unistd.h
-@@ -828,9 +828,13 @@ __SYSCALL(__NR_futex_wake, sys_futex_wake)
+@@ -828,9 +828,15 @@ __SYSCALL(__NR_futex_wake, sys_futex_wake)
  __SYSCALL(__NR_futex_wait, sys_futex_wait)
  #define __NR_futex_requeue 456
  __SYSCALL(__NR_futex_requeue, sys_futex_requeue)
@@ -62,10 +82,25 @@ index 756b013fb832..a7eb572e5e93 100644
 +__SYSCALL(__NR_cx_open, sys_cx_open)
 +#define __NR_cx_init 458
 +__SYSCALL(__NR_cx_init, sys_cx_init)
++#define __NR_cx_close 459
++__SYSCALL(__NR_cx_close, sys_cx_close)
  
  #undef __NR_syscalls
 -#define __NR_syscalls 457
-+#define __NR_syscalls 459
++#define __NR_syscalls 460
  
  /*
   * 32 bit systems traditionally used different
+diff --git a/lib/Makefile b/lib/Makefile
+index 6b09731d8e61..a1f08d1ea3bf 100644
+--- a/lib/Makefile
++++ b/lib/Makefile
+@@ -411,6 +411,8 @@ obj-$(CONFIG_GENERIC_LIB_DEVMEM_IS_ALLOWED) += devmem_is_allowed.o
+ 
+ obj-$(CONFIG_FIRMWARE_TABLE) += fw_table.o
+ 
++obj-y += queue.o
++
+ # FORTIFY_SOURCE compile-time behavior tests
+ TEST_FORTIFY_SRCS = $(wildcard $(srctree)/$(src)/test_fortify/*-*.c)
+ TEST_FORTIFY_LOGS = $(patsubst $(srctree)/$(src)/%.c, %.log, $(TEST_FORTIFY_SRCS))
