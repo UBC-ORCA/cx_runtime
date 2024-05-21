@@ -21,8 +21,8 @@ QEMU-SRC := $(SRC)/cx-qemu
 ZOO-DIR := zoo
 
 cx_objects := $(BDIR)/ci.o $(BDIR)/queue.o $(BDIR)/parser.o
-cx_libraries := $(BDIR)/addsub.o $(BDIR)/muldiv.o
-cx_helpers := $(QEMU-BDIR)/addsub_func.o $(QEMU-BDIR)/muldiv_func.o 
+cx_libraries := $(BDIR)/addsub.o $(BDIR)/muldiv.o $(BDIR)/mulacc.o
+cx_helpers := $(QEMU-BDIR)/addsub_func.o $(QEMU-BDIR)/muldiv_func.o $(QEMU-BDIR)/mulacc_func.o 
 qemu_objects := $(cx_helpers) $(QEMU-BDIR)/exports.o
 
 all: $(QEMU-LDIR)/libmcx_selector.so $(LDIR)/libci.a $(cx_libraries)
@@ -39,6 +39,9 @@ $(QEMU-BDIR)/addsub_func.o : $(ZOO-DIR)/addsub/addsub_func.c | $(QEMU-LDIR)
 	$(CCX86) -c $< -o $@
 
 $(QEMU-BDIR)/muldiv_func.o : $(ZOO-DIR)/muldiv/muldiv_func.c | $(QEMU-LDIR)
+	$(CCX86) -c $< -o $@
+
+$(QEMU-BDIR)/mulacc_func.o : $(ZOO-DIR)/mulacc/mulacc_func.c | $(QEMU-LDIR)
 	$(CCX86) -c $< -o $@
 
 $(QEMU-BDIR)/exports.o : $(ZOO-DIR)/exports.c | $(QEMU-LDIR)
@@ -64,6 +67,9 @@ $(BDIR)/addsub.o: $(ZOO-DIR)/addsub/addsub.c $(ZOO-DIR)/addsub/addsub.h
 	$(CC) -c $< -o $@
 
 $(BDIR)/muldiv.o: $(ZOO-DIR)/muldiv/muldiv.c $(ZOO-DIR)/muldiv/muldiv.h
+	$(CC) -c $< -o $@
+
+$(BDIR)/mulacc.o: $(ZOO-DIR)/mulacc/mulacc.c $(ZOO-DIR)/mulacc/mulacc.h
 	$(CC) -c $< -o $@
 
 

@@ -5,6 +5,6 @@
 
 #define CX_ADDSUB_NUM_FUNCS 3
 
-extern int32_t (*cx_func_addsub[]) ( int32_t, int32_t );
+extern int32_t (*cx_func_addsub[]) ( int32_t, int32_t, int32_t );
 
 #endif
