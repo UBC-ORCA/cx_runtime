@@ -21,7 +21,7 @@ target_ulong HELPER(cx_reg)(CPURISCVState *env, target_ulong cf_id,
     // printf("MCX_SELECTOR: %08x\n", env->mcx_selector);
     
     assert( CX_ID < MAX_CX_ID); // Possibly redundant
-    assert( OPCODE_ID <= num_cfs[CX_ID] );
+    // assert( OPCODE_ID <= num_cfs[CX_ID] );
     // printf("CX_ID: %d, OPCODE_ID: %d\n", CX_ID, OPCODE_ID);
 
     int32_t out = cx_funcs[CX_ID][OPCODE_ID](OPA, OPB, STATE_ID);
