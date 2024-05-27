@@ -40,11 +40,10 @@ static inline int32_t mulacc_write_status_func( int32_t value,
     if (cx_status == INITIAL) {
         reset_func(0, 0, state_id);
         cxu_stctx_status[state_id] = initial_status_word;
-    } 
+    }
     else if (cx_status == CLEAN)
     {
         cxu_stctx_status[state_id].sel.cs = CLEAN;
-        cxu_stctx_status[state_id].sel.error = 0;
     }
     
     return 0;
