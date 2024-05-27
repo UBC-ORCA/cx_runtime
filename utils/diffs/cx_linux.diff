@@ -9,7 +9,7 @@ index 464b34a08f51..64a2bfedd213 100644
 +obj-y           += cx_sys/
 +
 diff --git a/include/linux/sched.h b/include/linux/sched.h
-index 292c31697248..adfa6c070ae3 100644
+index 292c31697248..cea59145ba07 100644
 --- a/include/linux/sched.h
 +++ b/include/linux/sched.h
 @@ -39,6 +39,8 @@
@@ -21,18 +21,29 @@ index 292c31697248..adfa6c070ae3 100644
  /* task_struct member predeclarations (sorted alphabetically): */
  struct audit_context;
  struct bio_list;
-@@ -743,6 +745,21 @@ struct kmap_ctrl {
+@@ -743,6 +745,32 @@ struct kmap_ctrl {
  #endif
  };
  
 +#define NUM_CX 3
 +#define CX_NUM_STATES 3
++
++typedef struct {
++  int size;
++  int *data;
++} cx_state_info_t;
++
 +typedef struct {
 +  int cx_guid;
 +  int num_states;
 +  int counter;
 +  queue_t *avail_state_ids;
++  cx_state_info_t *cx_state;
 +} cx_entry_t;
++
++typedef struct {
++	
++} cx_ctxs_t;
 +
 +// typedef struct {
 +//   queue_t *avail_state_ids;
@@ -43,7 +54,7 @@ index 292c31697248..adfa6c070ae3 100644
  struct task_struct {
  #ifdef CONFIG_THREAD_INFO_IN_TASK
  	/*
-@@ -1544,6 +1561,13 @@ struct task_struct {
+@@ -1544,6 +1572,15 @@ struct task_struct {
  	struct user_event_mm		*user_event_mm;
  #endif
  
@@ -53,6 +64,8 @@ index 292c31697248..adfa6c070ae3 100644
 +	
 +	// TODO: This shouldn't be here - should be in the device_struct.
 +	cx_entry_t cx_map[NUM_CX];
++
++	// TODO: This also shouldn't be here. This is to keep track of the state information.
 +	
  	/*
  	 * New fields for task_struct should be added above here, so that

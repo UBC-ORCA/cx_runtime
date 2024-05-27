@@ -1,4 +1,5 @@
 #include <stdint.h>
+#include "utils.h"
 
 #ifndef CI_H
 #define CI_H
@@ -26,16 +27,7 @@ typedef int32_t cxu_sctx_t;      // per state
 #define CX_LEGACY 0
 
 
-// MACROS
-
-#define CX_REG(cf_id, rs1, rs2)                         \
-    int32_t result = -1;                                \
-    asm volatile("      cx_reg " #cf_id ",%0,%1,%2;\n" \
-                 : "=r" (result)                        \
-                 : "r" (rs1), "r" (rs2)                 \
-                 :                                      \
-    );                                                  \
-    return result                                       
+// MACROS                                
 
 // TODO: RESULT 
 

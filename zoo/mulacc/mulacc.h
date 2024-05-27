@@ -1,5 +1,6 @@
 #include <stdint.h>
 #include "../../include/ci.h"
+#include "mulacc_common.h"
 
 #ifndef MULACC_H
 #define MULACC_H
