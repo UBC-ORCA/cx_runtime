@@ -9,20 +9,28 @@
 
 #define MAX_STATE_SIZE 1024 // number of words in a state
 
+/* cx_selector CSR */
 #define CX_ID_START_INDEX 0
 #define CX_ID_BITS 8
 
 #define CX_STATE_START_INDEX 16
 #define CX_STATE_ID_BITS 8
 
+/* cx_context_status_word CSR */
 #define CX_STATUS_START_INDEX 0
 #define CX_STATUS_BITS 2
 
-#define CX_STATE_SIZE_START_INDEX 2
+#define CX_STATE_SIZE_START_INDEX 3
 #define CX_STATE_SIZE_BITS 10
 
 #define CX_ERROR_START_INDEX 24
 #define CX_ERROR_BITS 8
+
+#define CX_INITIALIZER_BITS 1
+#define CX_INITIALIZER_START_INDEX 2
+
+#define CX_HW_INIT 0
+#define CX_OS_INIT 1
 
 // ========= cx helpers ===========
 
@@ -42,6 +50,9 @@
 #define GET_CX_STATUS(cx_sel) \
     GET_BITS(cx_sel, CX_STATUS_START_INDEX, CX_STATUS_BITS)
 
+#define GET_CX_INITIALIZER(cx_sel) \
+    GET_BITS(cx_sel, CX_INITIALIZER_START_INDEX, CX_INITIALIZER_START_INDEX)
+
 #define GET_CX_STATE_SIZE(cx_sel) \
     GET_BITS(cx_sel, CX_STATE_SIZE_START_INDEX, CX_STATE_SIZE_BITS)
 
@@ -52,10 +63,11 @@ typedef unsigned int uint;
 
 typedef union {
      struct {
-        uint cs     : CX_STATUS_BITS;
-        uint state_size : CX_STATE_SIZE_BITS;
-        uint reserved0  : 12;
-        uint error      : CX_ERROR_BITS;
+        uint cs          : CX_STATUS_BITS;
+        uint initializer : CX_INITIALIZER_BITS;
+        uint state_size  : CX_STATE_SIZE_BITS;
+        uint reserved0   : 11;
+        uint error       : CX_ERROR_BITS;
      } sel;
       uint idx;
 } cx_stctxs_t;
@@ -74,21 +86,19 @@ enum {
                  :                                       \
     );   }) 
 
+#define CX_WRITE_STATE(index, value)  ({                   \
+    asm volatile("      cx_reg 1020, zero,%0,%1;\n\t"      \
+                 :                                         \
+                 : "r" (index), "r" (value)                \
+                 :                                         \
+    );   })
 
-#define CX_WRITE_STATE(rs1, rs2)  ({                   \
-    asm volatile("      cx_reg 1020, zero,%0,%1;\n\t"  \
-                 :                                     \
-                 : "r" (rs1), "r" (rs2)                \
-                 :                                     \
-    );   }) 
-
-#define CX_WRITE_STATUS(rs1)  ({                        \
-    asm volatile("      cx_reg 1022, x0,%0,x0;\n\t"     \
-                 :                                      \
-                 : "r" (rs1)                            \
-                 :                                      \
-    );   }) 
-
+#define CX_WRITE_STATUS(status)  ({                        \
+    asm volatile("      cx_reg 1022, x0,%0,x0;\n\t"        \
+                 :                                         \
+                 : "r" (status)                            \
+                 :                                         \
+    );   })
 
 #define CX_REG(cf_id, rs1, rs2)                         \
     int32_t result = -1;                                \

@@ -1,5 +1,6 @@
 #include <stdint.h>
 #include "../../include/ci.h"
+#include "addsub_common.h"
 
 #ifndef ADDSUB_H
 #define ADDSUB_H

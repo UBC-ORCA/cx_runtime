@@ -6,6 +6,9 @@
 #include <linux/syscalls.h>
 
 #include "../../../../research/riscv-tools/cx_runtime/include/utils.h"
+#include "../../../../research/riscv-tools/cx_runtime/zoo/mulacc/mulacc_common.h"
+#include "../../../../research/riscv-tools/cx_runtime/zoo/muldiv/muldiv_common.h"
+#include "../../../../research/riscv-tools/cx_runtime/zoo/addsub/addsub_common.h"
 
 #define CX_SEL_TABLE_NUM_ENTRIES 1024
 
@@ -150,6 +153,12 @@ static void copy_state_to_os( int32_t state_id, int32_t cx_id, int32_t state_siz
         }
 }
 
+// static void write_state_to_cxu( int32_t state_id, int32_t cx_id, int32_t state_size , int32_t *dest ) {
+//         for (int i = 0; i < state_size; i++) {
+//                 CX_WRITE_STATE(dest[i], i);
+//         }
+// }
+
 SYSCALL_DEFINE0(cx_init)
 {
         current->mcx_table = kzalloc(sizeof(int) * 1024, GFP_KERNEL);
@@ -183,21 +192,18 @@ SYSCALL_DEFINE0(cx_init)
         // 0 initialize the mcx_selector csr
         // asm volatile ("csrw 0x, 0        \n\t");
         
-        current->cx_map[0].cx_guid = 11;
-        current->cx_map[1].cx_guid = 4;
-        current->cx_map[2].cx_guid = 222;
+        current->cx_map[0].cx_guid = CX_GUID_MULDIV;
+        current->cx_map[1].cx_guid = CX_GUID_ADDSUB;
+        current->cx_map[2].cx_guid = CX_GUID_MULACC;
 
-        current->cx_map[0].num_states = CX_NUM_STATES;
-        current->cx_map[1].num_states = CX_NUM_STATES;
-        current->cx_map[2].num_states = CX_NUM_STATES;
+        current->cx_map[0].num_states = CX_MULDIV_NUM_STATES;
+        current->cx_map[1].num_states = CX_ADDSUB_NUM_STATES;
+        current->cx_map[2].num_states = CX_MULACC_NUM_STATES;
         
         for (int i = 0; i < NUM_CX; i++) {
-                current->cx_map[i].avail_state_ids = make_queue(CX_NUM_STATES);
+                current->cx_map[i].avail_state_ids = make_queue(current->cx_map[i].num_states);
                 current->cx_map[i].cx_state = kzalloc(sizeof(cx_state_info_t) * CX_NUM_STATES, GFP_KERNEL);
                 current->cx_map[i].counter = 0;
-                // for (int j = 0; j < CX_NUM_STATES; j++) {
-                //         current->cx_map[i].cx_state[j].data = kzalloc(sizeof(int) * 1024, GFP_KERNEL);
-                // }
         }
         return 0;
 }
@@ -289,13 +295,7 @@ SYSCALL_DEFINE1(cx_open, int, cx_guid)
                         :
                 );
 
-                // 4. Set the CXU to initial state
-                uint initial_status = INITIAL; // If .cs bits are set to 1, the rest of the fields
-                                       // are ignored on a write.
-                        
-                CX_WRITE_STATUS(initial_status);
-
-                // 5. Read the state to get the state_size
+                // 4. Read the state to get the state_size
                 uint status = 0xFFFFFFFF;
                 CX_READ_STATUS(status);
                 uint state_size = 1025;
@@ -305,21 +305,25 @@ SYSCALL_DEFINE1(cx_open, int, cx_guid)
                         return -1;
                 }
 
-                // 6. Write the initial state to the OS memory
+                // 5. Set the CXU to initial state
+                uint sw_init = GET_CX_INITIALIZER(status);
+
+                CX_WRITE_STATUS(INITIAL);
+
+                // hw required to set to dirty after init, while sw does it explicitly
+                if (sw_init) {
+                        for (int i = 0; i < state_size; i++) {
+                                CX_WRITE_STATE(i, 0);
+                        }
+                        CX_WRITE_STATUS(DIRTY);
+                }
+
+
+                // 6. Allocate memory in the OS for the state
                 //    ** I'm not sure it's needed to do this **
                 current->cx_map[cx_id].cx_state[state_id].data = kzalloc(MAX_STATE_SIZE, GFP_KERNEL);
-                // pr_info("state_size: %08x\n", status);
-                copy_state_to_os(state_id, cx_id, state_size, current->cx_map[cx_id].cx_state[state_id].data);
 
-                // 7. Set state to clean
-                uint new_status = 0;
-                // 0 the cs field, keep the same state size, but set the new state to clean
-                // do we need to do all this? or can we just write clean and have hw deal with the size
-                // and error + make sure reserved bits are 0'ed
-                new_status = ((state_size << CX_STATE_START_INDEX) & 0xFFFFFFFC) | CLEAN;
-                CX_WRITE_STATUS(new_status);
-
-                // 8. Write the previous selector value back to cx_index
+                // 7. Write the previous selector value back to cx_index
                 asm volatile (
                         "csrr %0, 0x011        \n\t"
                         :
@@ -327,7 +331,7 @@ SYSCALL_DEFINE1(cx_open, int, cx_guid)
                         :
                 );
         }
-
+        
         return cx_index;
 }
 

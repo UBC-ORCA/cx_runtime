@@ -6,6 +6,7 @@
 static int acc[CX_MULACC_NUM_STATES];
 
 static const cx_stctxs_t initial_status_word = {.sel = {.cs = INITIAL,
+                                                        .initializer = CX_HW_INIT,
                                                         .state_size = 1,
                                                         .error = 0}};
 
@@ -37,13 +38,15 @@ static inline int32_t mulacc_write_status_func( int32_t value,
     // TODO: See if this is a good approach
     //       And see what to do for the other cases (off, dirty)
     int cx_status = GET_CX_STATUS(value);
-    if (cx_status == INITIAL) {
+    int state_size = GET_CX_STATE_SIZE(value);
+
+    if (cx_status == INITIAL && state_size == 0) {
         reset_func(0, 0, state_id);
         cxu_stctx_status[state_id] = initial_status_word;
     }
-    else if (cx_status == CLEAN)
+    else if (cx_status == DIRTY)
     {
-        cxu_stctx_status[state_id].sel.cs = CLEAN;
+        cxu_stctx_status[state_id].sel.cs = DIRTY;
     }
     
     return 0;
