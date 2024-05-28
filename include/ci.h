@@ -39,5 +39,6 @@ cx_sel_t   cx_sel(cx_sel_t cx_sel);
 void       cx_close(cx_sel_t cx_sel);
 cx_error_t cx_read_status(void);
 void       cx_deselect_and_close(cx_sel_t cx_sel);
+void       cx_init(void);
 
 #endif

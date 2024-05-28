@@ -10,13 +10,6 @@ int cx_reg(int a, int b) {
   CX_REG(0, a, b);
 }
 
-void cx_init() {
-  asm volatile (
-    "li a7, 458;        \n\t"  // cx_init syscall
-    "ecall;             \n\t"
-  );
-}
-
 int main() {
     cx_init();
     int a = 3;

@@ -24,6 +24,14 @@
 
 #define MCX_VERSION 1
 
+// TODO: This should be called from somewhere in the kernel
+void cx_init() {
+  asm volatile (
+    "li a7, 458;        \n\t"  // cx_init syscall
+    "ecall;             \n\t"
+  );
+}
+
 int cx_sel(int cx_index) {
    asm volatile (
     "csrw 0x011, %0        \n\t" // TODO: Should be 800
