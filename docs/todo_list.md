@@ -1,10 +1,18 @@
 # Short Term Objectives
 
-:x: move the data structures with the free lists in ci.c to pk, so that the "kernel" can handle the syscall to _cx_open, _cx_sel, and _cx_close
+:x: Fix stateless cxs
+
+:x: Add tests, making sure that the correct state off / init / dirty / clean values are set correctly
+
+:x: Fix m mode cx_{open, close, sel}, so that it works the same as u mode
+
+:x: Document the functionality of cx_{open, close, sel}
+
+:x: Fix builds
 
 :x: Trap on write to mcx_selector, so that it writes to the correct address (0xBC0 instead of 0x802)
 
-:x: Create CX_STATUS CSR to keep track of errors (%2.2.2) [Needs spike CF_ID errors to be handled]
+:x: Create CX_STATUS CSR to keep track of errors (%2.2.2)
 
 :x: Check objdump to make sure that inlined functions are actually being inlined
 
@@ -12,9 +20,9 @@
 
 # Medium Term Objectives
 
-:x: Add `probe` operation to check if a given cx can properly be accessed
-
 :x: Create a CI / CD test harness
+
+:x: Add `probe` operation to check if a given cx can properly be accessed
 
 :x: Consider how the user will interact with the `cx_error();` function - when will it be called? 
     should it be a part of `cx_close();`?
