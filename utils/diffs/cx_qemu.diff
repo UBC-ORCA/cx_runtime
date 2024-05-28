@@ -33,6 +33,30 @@ index 6c77d9687d..dbc3c14eef 100644
    c_args = ['-DNEED_CPU_H',
              '-DCONFIG_TARGET="@0@-config-target.h"'.format(target),
              '-DCONFIG_DEVICES="@0@-config-devices.h"'.format(target)]
+diff --git a/system/main.c b/system/main.c
+index 9b91d21ea8..4ef23c4493 100644
+--- a/system/main.c
++++ b/system/main.c
+@@ -26,14 +26,18 @@
+ #include "qemu-main.h"
+ #include "sysemu/sysemu.h"
+ 
++#include "../../../../zoo/exports.h"
++#include <stdio.h>
++
+ #ifdef CONFIG_SDL
+ #include <SDL.h>
+ #endif
+ 
+ int qemu_default_main(void)
+ {
++    printf("initializing cx function pointers...\n");
++    cx_init_funcs();
+     int status;
+-
+     status = qemu_main_loop();
+     qemu_cleanup(status);
+ 
 diff --git a/target/riscv/cpu.c b/target/riscv/cpu.c
 index 83c7c0cf07..6fff66e0f1 100644
 --- a/target/riscv/cpu.c
@@ -81,7 +105,7 @@ index ebd7917d49..49d33e52d6 100644
  #define VCSR_VXSAT_SHIFT    0
  #define VCSR_VXSAT          (0x1 << VCSR_VXSAT_SHIFT)
 diff --git a/target/riscv/csr.c b/target/riscv/csr.c
-index c50a33397c..05253496ba 100644
+index c50a33397c..6f465464ac 100644
 --- a/target/riscv/csr.c
 +++ b/target/riscv/csr.c
 @@ -30,6 +30,8 @@
@@ -102,7 +126,7 @@ index c50a33397c..05253496ba 100644
      return RISCV_EXCP_NONE;
  }
  
-@@ -4471,6 +4473,71 @@ static RISCVException write_jvt(CPURISCVState *env, int csrno,
+@@ -4471,6 +4473,75 @@ static RISCVException write_jvt(CPURISCVState *env, int csrno,
      return RISCV_EXCP_NONE;
  }
  
@@ -146,6 +170,10 @@ index c50a33397c..05253496ba 100644
 +    int mmu_idx = riscv_cpu_mmu_index(env, true);
 +    MemOpIdx oi = make_memop_idx(MO_32, mmu_idx);
 +
++    // if the selector index is out of range, have an error
++    // or if it's bigger than the table size
++    // on git: can check branch on git for CX CSR approach
++
 +    target_ulong temp = cpu_ldl_mmu(env, env->mcx_table + val * 4, oi, ra);
 +    riscv_cpu_set_mode(env, prev_priv);
 +  
@@ -174,7 +202,7 @@ index c50a33397c..05253496ba 100644
  /*
   * Control and Status Register function table
   * riscv_csr_operations::predicate() must be provided for an implemented CSR
-@@ -4507,6 +4574,15 @@ riscv_csr_operations csr_ops[CSR_TABLE_SIZE] = {
+@@ -4507,6 +4578,15 @@ riscv_csr_operations csr_ops[CSR_TABLE_SIZE] = {
      /* Zcmt Extension */
      [CSR_JVT] = {"jvt", zcmt, read_jvt, write_jvt},
  
@@ -205,7 +233,7 @@ index 8a63523851..37fd209f40 100644
  DEF_HELPER_FLAGS_3(fadd_h, TCG_CALL_NO_RWG, i64, env, i64, i64)
  DEF_HELPER_FLAGS_3(fsub_h, TCG_CALL_NO_RWG, i64, env, i64, i64)
 diff --git a/target/riscv/insn32.decode b/target/riscv/insn32.decode
-index 33597fe2bb..c65d3fad63 100644
+index 33597fe2bb..c737ad5647 100644
 --- a/target/riscv/insn32.decode
 +++ b/target/riscv/insn32.decode
 @@ -39,6 +39,9 @@
@@ -213,7 +241,7 @@ index 33597fe2bb..c65d3fad63 100644
  %imm_z6   26:1 15:5
  
 +# CX
-+%cf_id    25:s7 12:3
++%cf_id    25:7 12:3
 +
  # Argument sets:
  &empty

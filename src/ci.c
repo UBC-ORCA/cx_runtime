@@ -1,7 +1,7 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include <stdio.h>
-#include <stdbool.h>
+// #include <stdbool.h>
 
 #include "../include/ci.h"
 
@@ -23,51 +23,6 @@
 #define CX_INDEX     0x800
 
 #define MCX_VERSION 1
-
-// Can also check the cx_sel_indicies
-// int32_t verify_counters()
-// {
-//     int32_t *counters = calloc(NUM_CX_IDS, sizeof(int32_t));
-
-//     for (int32_t i = 0; i < CX_SEL_TABLE_NUM_ENTRIES - 1; i++) {
-//         cx_sel_t cx_sel = cx_sel_table[i];
-//         if (cx_sel == 0) {
-//             continue;
-//         }
-//         cx_id_t cx_id = ((cx_selidx_t) cx_sel).sel.cx_id;
-//         assert(cx_id < NUM_CX_IDS);
-//         counters[cx_id]++;
-//     }
-
-//     for (int32_t cx_id = 0; cx_id < NUM_CX_IDS; cx_id++) {
-//         // stateless
-//         if (cx_map[cx_id].num_state_ids == 0) {
-//             // Only 1 stateless cx_index per cx_table allowed
-//             if (counters[cx_id] > 1) {
-//                 free(counters);
-//                 return false;
-//             }
-//             // hanging value in cx_table
-//             if (cx_map[cx_id].counter == 0 && counters[cx_id] == 1) {
-//                 free(counters);
-//                 return false;
-//             }
-//             // counter value was not properly decremented on close
-//             if (cx_map[cx_id].counter > 0 && counters[cx_id] == 0) {
-//                 free(counters);
-//                 return false;
-//             }
-//         }
-
-//         // stateful
-//         else if (cx_map[cx_id].counter != counters[cx_id]) {
-//             free(counters);
-//             return false;
-//         }
-//     }
-//     free(counters);
-//     return true;
-// }
 
 int cx_sel(int cx_index) {
    asm volatile (

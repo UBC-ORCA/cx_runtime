@@ -1,5 +1,6 @@
 #include <stdint.h>
 #include "../../include/ci.h"
+#include "muldiv_common.h"
 
 #ifndef MULDIV_H
 #define MULDIV_H

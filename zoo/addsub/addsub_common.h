@@ -1,0 +1,8 @@
+#ifndef ADDSUB_COMMON_H
+#define ADDSUB_COMMON_H
+
+#define CX_GUID_ADDSUB 4
+#define CX_ADDSUB_NUM_FUNCS 3
+#define CX_ADDSUB_NUM_STATES 0
+
+#endif
