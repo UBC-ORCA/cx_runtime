@@ -5,10 +5,6 @@
 
 #include "../include/ci.h"
 
-#define CX_ID_BITS 8
-#define CX_ID_START_INDEX 0
-#define STATE_ID_BITS 8
-#define STATE_ID_START_INDEX 16
 #define MAX_CXU_ID 1 << CX_ID_BITS
 #define MAX_STATE_ID 1 << STATE_ID_BITS
 
@@ -53,10 +49,6 @@ int32_t cx_open(cx_guid_t cx_guid, cx_share_t cx_share) {
     :  "r"  (cx_guid)
     :
   );
-  if (cx_index == -1) {
-    printf("error: cx_sel = -1\n");
-    exit(0);
-  }
   return cx_index;
 }
 
