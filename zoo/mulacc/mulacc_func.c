@@ -47,6 +47,10 @@ static inline int32_t mulacc_write_status_func( int32_t value,
     else if (cx_status == DIRTY)
     {
         cxu_stctx_status[state_id].sel.cs = DIRTY;
+    } 
+    else if (cx_status == CLEAN)
+    {
+        cxu_stctx_status[state_id].sel.cs = CLEAN;
     }
     
     return 0;

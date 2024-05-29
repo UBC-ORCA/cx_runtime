@@ -52,8 +52,8 @@ $(QEMU-LDIR):
 
 
 ###########   Building cx runtime   ###########
-$(LDIR)/libci.a: $(cx_objects) | $(LDIR)
-	$(AR) -rcs $@ $(cx_objects)
+$(LDIR)/libci.a: $(cx_objects) $(cx_libraries) | $(LDIR)
+	$(AR) -rcs $@ $(cx_objects) $(cx_libraries)
 
 $(BDIR)/%.o : $(SRC)/%.c | $(LDIR)
 	$(CC) -c $< -o $@
