@@ -10,7 +10,7 @@ static const cx_stctxs_t initial_status_word = {.sel = {.cs = INITIAL,
                                                         .state_size = 1,
                                                         .error = 0}};
 
-static cx_stctxs_t cxu_stctx_status[CX_MULACC_NUM_STATES]; // set size to 1
+static cx_stctxs_t cxu_stctx_status[CX_MULACC_NUM_STATES];
 
 static inline int32_t mac_func(int32_t a, int32_t b, int32_t state_id)
 {
@@ -97,7 +97,6 @@ void init_cx_func_mulacc() {
                                       .error = 0,
                                       .state_size = 1}};
 
-    // TODO: This initialization should be done in cx_init... I think
     for (int i = 0; i < CX_MULACC_NUM_STATES; i++) {
         cxu_stctx_status[i] = off_status;
     }
