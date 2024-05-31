@@ -2,9 +2,8 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include "../../../../research/riscv-tools/cx_runtime/include/ci.h"
-
-#define CX_GUID_A 11
-#define CX_GUID_C 222
+#include "../../../../research/riscv-tools/cx_runtime/zoo/mulacc/mulacc.h"
+#include "../../../../research/riscv-tools/cx_runtime/zoo/addsub/addsub.h"
 
 int cx_reg(int a, int b) {
   CX_REG(0, a, b);
@@ -18,9 +17,9 @@ int main() {
 
     cx_share_t share_A = 0, share_C = 0;
 
-    int cx_sel_A = cx_open(CX_GUID_A, share_A);
-    int cx_sel_C0 = cx_open(CX_GUID_C, share_C);
-    int cx_sel_C1 = cx_open(CX_GUID_C, share_C);
+    int cx_sel_A = cx_open(CX_GUID_ADDSUB, share_A);
+    int cx_sel_C0 = cx_open(CX_GUID_MULACC, share_C);
+    int cx_sel_C1 = cx_open(CX_GUID_MULACC, share_C);
 
     printf("cx_sel_A: %d, cx_sel_C0: %d, cx_sel_C: %d\n", cx_sel_A, cx_sel_C0, cx_sel_C1);
     printf("a: %d, b: %d\n", a, b);
@@ -48,7 +47,6 @@ int main() {
     cx_close(cx_sel_A);
     cx_close(cx_sel_C0);
     cx_close(cx_sel_C1);
-
     
     printf("completed!\n");
     return 0;
