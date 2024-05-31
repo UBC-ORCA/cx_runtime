@@ -1,22 +1,13 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include <stdio.h>
-// #include <stdbool.h>
 
 #include "../include/ci.h"
 
-#define MAX_CXU_ID 1 << CX_ID_BITS
-#define MAX_STATE_ID 1 << STATE_ID_BITS
-
 #define CX_SEL_TABLE_NUM_ENTRIES 1024
-#define VERSION_START_INDEX 28
+
 #define DEBUG 1
 #define UNASSIGNED_STATE -1
-
-#define MCX_SELECTOR 0xBC0
-#define CX_STATUS    0x801
-#define MCX_TABLE    0x802 // should be 0xBC1
-#define CX_INDEX     0x800
 
 #define MCX_VERSION 1
 
@@ -30,7 +21,7 @@ void cx_init() {
 
 int cx_sel(int cx_index) {
    asm volatile (
-    "csrw 0x011, %0        \n\t" // TODO: Should be 800
+    "csrw " CX_INDEX ", %0        \n\t" // TODO: Should be 800
     :
     : "r" (cx_index)
     :
@@ -64,12 +55,23 @@ void cx_close(cx_sel_t cx_sel)
     :  "r"  (cx_sel)
     : 
   );
-
-  if (cx_close_error == -1) {
-    printf("error: with cx_close\n");
-    exit(0);
-  }
 }
+
+uint cx_error() {
+  int cx_error = -1;
+  asm volatile (
+    "csrr %0, " CX_STATUS ";     \n\t"
+    : "=r" (cx_error)
+    :
+    :
+  );
+  if (cx_error == -1) {
+    printf("error reading cx_error\n");
+    exit ( -1 );
+  }
+  return cx_error;
+}
+
 
 void cx_deselect_and_close(cx_sel_t cx_sel)
 {
