@@ -12,18 +12,6 @@
 
 #define CX_SEL_TABLE_NUM_ENTRIES 1024
 
-typedef union {
-     struct {
-        uint cx_id     : 8;
-        uint reserved1 : 8;
-        uint state_id  : 8;
-        uint reserved0 : 4;
-        uint cxe       : 1;
-        uint version   : 3;
-     } sel;
-      int idx;
- } cx_selidx_t;
-
 #define CX_VERSION 1
 #define CX_STATE_AVAIL 1
 #define CX_STATE_UNAVAIL 0
@@ -180,14 +168,14 @@ SYSCALL_DEFINE0(cx_init)
 
         // Update the mcx_table csr with the mcx_table address
         asm volatile (
-                "csrw 0x145, %0        \n\t" // TODO: 145 is temporary - will be 0xBC1 when QEMU works
+                "csrw " MCX_TABLE ", %0        \n\t" // TODO: 145 is temporary - will be 0xBC1 when QEMU works
                 :
                 : "r" (&current->mcx_table[0])
                 :
                 );
 
         // 0 initialize the cx_index table csr
-        asm volatile ("csrw 0x011, 0        \n\t");
+        asm volatile ("csrw " CX_INDEX ", 0        \n\t");
 
         // 0 initialize the mcx_selector csr
         // asm volatile ("csrw 0x, 0        \n\t");
@@ -293,7 +281,7 @@ SYSCALL_DEFINE1(cx_open, int, cx_guid)
 
                 // 2. Store the previous value in the cx_index csr
                 asm volatile (
-                        "csrr %0, 0x011        \n\t" // cx_index csr
+                        "csrr %0, " CX_INDEX "        \n\t" // cx_index csr
                         : "=r" (prev_sel_index)
                         :
                         :
@@ -306,7 +294,7 @@ SYSCALL_DEFINE1(cx_open, int, cx_guid)
 
                 // 3. Update cx_index to the new value
                 asm volatile (
-                        "csrw 0x011, %0        \n\t" // cx_index csr
+                        "csrw " CX_INDEX ", %0        \n\t" // cx_index csr
                         : 
                         : "r" (cx_index)
                         :
@@ -341,7 +329,7 @@ SYSCALL_DEFINE1(cx_open, int, cx_guid)
 
                 // 7. Write the previous selector value back to cx_index
                 asm volatile (
-                        "csrr %0, 0x011        \n\t"
+                        "csrr %0, " CX_INDEX "        \n\t"
                         :
                         : "r" (prev_sel_index)
                         :
