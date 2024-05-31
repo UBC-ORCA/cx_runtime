@@ -15,10 +15,34 @@ target_ulong HELPER(cx_reg)(CPURISCVState *env, target_ulong cf_id,
     uint32_t OPCODE_ID = cf_id;
     int32_t OPA = rs1;
     int32_t OPB = rs2;
-    int32_t CX_ID = GET_CX_ID(env->mcx_selector);
-    int32_t STATE_ID = GET_CX_STATE(env->mcx_selector);
-    // printf("STATE_ID from cx_helper: %08x\n", STATE_ID);
-    // printf("MCX_SELECTOR: %08x\n", env->mcx_selector);
+    uint32_t CX_ID = GET_CX_ID(env->mcx_selector);
+    uint32_t STATE_ID = GET_CX_STATE(env->mcx_selector);
+    uint32_t VERSION = GET_CX_VERSION(env->mcx_selector);
+
+    if (VERSION != 1) {
+        cx_status_t cx_status = {{env->cx_status}};
+        cx_status.sel.IV = 1;
+        env->cx_status = cx_status.idx;
+    }
+
+    // stateless 
+    if (STATE_ID > 0 && num_states[CX_ID] == 0) {
+        cx_status_t cx_status = {{env->cx_status}};
+        cx_status.sel.IS = 1;
+        env->cx_status = cx_status.idx;
+    }
+    // stateful
+    else if (STATE_ID > num_states[CX_ID] - 1) {
+        cx_status_t cx_status = {{env->cx_status}};
+        cx_status.sel.IS = 1;
+        env->cx_status = cx_status.idx;
+    }
+
+    if (OPCODE_ID > num_cfs[CX_ID] - 1) {
+        cx_status_t cx_status = {{env->cx_status}};
+        cx_status.sel.IF = 1;
+        env->cx_status = cx_status.idx;
+    }
     
     assert( CX_ID < MAX_CX_ID); // Possibly redundant
     // assert( OPCODE_ID <= num_cfs[CX_ID] );
