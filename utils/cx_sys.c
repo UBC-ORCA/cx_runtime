@@ -258,14 +258,13 @@ SYSCALL_DEFINE1(cx_open, int, cx_guid)
 
         // stateless cx - checking if the value is in the cx sel table already
         if (current->cx_map[cx_id].num_states == 0) {
-
+                current->cx_map[cx_id].counter++;
                 if (current->cx_map[cx_id].index[0] > 0) {
-                        current->cx_map[cx_id].counter++;
                         return current->cx_map[cx_id].index[0];
                 }
+                current->cx_map[cx_id].index[0] = cx_index;
 
                 dequeue(current->cx_table_avail_indices);
-
                 cx_sel = gen_cx_sel(cx_id, 0, CX_VERSION);
                 current->mcx_table[cx_index] = cx_sel;
         
@@ -384,11 +383,9 @@ SYSCALL_DEFINE1(cx_close, int, cx_sel)
                 errno = 137;
                 return -1;
         }
-
         #endif
         // Stateful cx's
         if (current->cx_map[cx_id].num_states > 0) {
-
                 state_id_t state_id = ((cx_selidx_t) cx_sel).sel.state_id;
                 if (!is_valid_state_id(cx_id, state_id)) {
                         // errno = 139;
