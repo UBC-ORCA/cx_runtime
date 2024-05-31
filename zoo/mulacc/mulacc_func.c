@@ -35,14 +35,18 @@ static inline int32_t mulacc_read_status_func( __attribute__((unused)) int32_t u
 static inline int32_t mulacc_write_status_func( int32_t value, 
                                                 __attribute__((unused)) int32_t unused0,
                                                 int32_t state_id ) {
-    // TODO: See if this is a good approach
-    //       And see what to do for the other cases (off, dirty)
+
     int cx_status = GET_CX_STATUS(value);
     int state_size = GET_CX_STATE_SIZE(value);
 
     if (cx_status == INITIAL && state_size == 0) {
-        reset_func(0, 0, state_id);
+        // Write initial first, in case state is read. SW will know that CXU is still
+        // in the process of resetting.
         cxu_stctx_status[state_id] = initial_status_word;
+        // hw update to reset state.
+        reset_func(0, 0, state_id);
+        // write dirty, so OS knows to save state on context switch
+        cxu_stctx_status[state_id].sel.cs = DIRTY;
     }
     else if (cx_status == DIRTY)
     {
