@@ -16,6 +16,12 @@ int32_t num_cfs[MAX_CX_ID] = {
     CX_MULACC_NUM_FUNCS
     };
 
+int32_t num_states[MAX_STATE_SIZE] = {
+    CX_MULDIV_NUM_STATES,
+    CX_ADDSUB_NUM_STATES,
+    CX_MULACC_NUM_STATES
+};
+
 // Fill unused functions in their arrays error
 void cx_init_funcs() {
     init_cx_func_mulacc();
@@ -23,5 +29,6 @@ void cx_init_funcs() {
     for (int i = NUM_CX; i < MAX_CX_ID; i++) {
         cx_funcs[i] = cx_func_error;
         num_cfs[i] = 0;
+        num_states[i] = 0;
     }
 }
