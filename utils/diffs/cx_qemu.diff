@@ -58,54 +58,57 @@ index 9b91d21ea8..4ef23c4493 100644
      qemu_cleanup(status);
  
 diff --git a/target/riscv/cpu.c b/target/riscv/cpu.c
-index 83c7c0cf07..6fff66e0f1 100644
+index 83c7c0cf07..0a1965bb01 100644
 --- a/target/riscv/cpu.c
 +++ b/target/riscv/cpu.c
-@@ -717,6 +717,10 @@ static void riscv_cpu_dump_state(CPUState *cs, FILE *f, int flags)
+@@ -717,6 +717,11 @@ static void riscv_cpu_dump_state(CPUState *cs, FILE *f, int flags)
              CSR_SPMMASK,
              CSR_MPMBASE,
              CSR_MPMMASK,
 +            /* CX */
 +            CSR_MCX_SELECTOR,
-+            CSR_CX_SELECTOR_INDEX, 
-+            CSR_MCX_TABLE
++            CSR_CX_INDEX, 
++            CSR_MCX_TABLE,
++            CSR_CX_STATUS
          };
  
          for (i = 0; i < ARRAY_SIZE(dump_csrs); ++i) {
 diff --git a/target/riscv/cpu.h b/target/riscv/cpu.h
-index d74b361be6..6bdb76b878 100644
+index d74b361be6..1efb871a67 100644
 --- a/target/riscv/cpu.h
 +++ b/target/riscv/cpu.h
-@@ -149,6 +149,11 @@ struct CPUArchState {
+@@ -149,6 +149,12 @@ struct CPUArchState {
      target_ulong vtype;
      bool vill;
  
 +    /* CX */
 +    uint32_t mcx_selector;
 +    target_ulong mcx_table;
-+    uint32_t cx_selector_index;
++    uint32_t cx_index;
++    uint32_t cx_status;
 +
      target_ulong pc;
      target_ulong load_res;
      target_ulong load_val;
 diff --git a/target/riscv/cpu_bits.h b/target/riscv/cpu_bits.h
-index ebd7917d49..49d33e52d6 100644
+index ebd7917d49..a72606822f 100644
 --- a/target/riscv/cpu_bits.h
 +++ b/target/riscv/cpu_bits.h
-@@ -68,6 +68,11 @@
+@@ -68,6 +68,12 @@
  #define CSR_VTYPE           0xc21
  #define CSR_VLENB           0xc22
  
 +/* CX */
 +#define CSR_MCX_TABLE      0x145 // should be BC1, but qemu doesn't like that
-+#define CSR_CX_SELECTOR_INDEX 0x011 // should be 800
++#define CSR_CX_INDEX 0x011 // should be 800
 +#define CSR_MCX_SELECTOR   0x012 // should be BC0
++#define CSR_CX_STATUS  0x013 // should be 801
 +
  /* VCSR fields */
  #define VCSR_VXSAT_SHIFT    0
  #define VCSR_VXSAT          (0x1 << VCSR_VXSAT_SHIFT)
 diff --git a/target/riscv/csr.c b/target/riscv/csr.c
-index c50a33397c..6f465464ac 100644
+index c50a33397c..1c54093f97 100644
 --- a/target/riscv/csr.c
 +++ b/target/riscv/csr.c
 @@ -30,6 +30,8 @@
@@ -126,7 +129,7 @@ index c50a33397c..6f465464ac 100644
      return RISCV_EXCP_NONE;
  }
  
-@@ -4471,6 +4473,75 @@ static RISCVException write_jvt(CPURISCVState *env, int csrno,
+@@ -4471,6 +4473,91 @@ static RISCVException write_jvt(CPURISCVState *env, int csrno,
      return RISCV_EXCP_NONE;
  }
  
@@ -147,22 +150,38 @@ index c50a33397c..6f465464ac 100644
 +    return RISCV_EXCP_NONE;
 +}
 +
-+
-+static RISCVException read_cx_selector_index(CPURISCVState *env, int csrno,
++static RISCVException read_cx_status(CPURISCVState *env, int csrno,
 +                                target_ulong *val)
 +{
-+    *val = env->cx_selector_index;
++    *val = env->cx_status;
 +    return RISCV_EXCP_NONE;
 +}
 +
-+static RISCVException write_cx_selector_index(CPURISCVState *env, int csrno,
++static RISCVException write_cx_status(CPURISCVState *env, int csrno,
++                                 target_ulong val)
++{
++// #if !defined(CONFIG_USER_ONLY)
++//     env->mstatus |= MSTATUS_VS;
++// #endif
++    env->cx_status = val;
++    return RISCV_EXCP_NONE;
++}
++
++static RISCVException read_cx_index(CPURISCVState *env, int csrno,
++                                target_ulong *val)
++{
++    *val = env->cx_index;
++    return RISCV_EXCP_NONE;
++}
++
++static RISCVException write_cx_index(CPURISCVState *env, int csrno,
 +                                 target_ulong val)
 +{
 +// #if !defined(CONFIG_USER_ONLY)
 +//     env->mstatus |= MSTATUS_VS;
 +// #endif
 +   
-+    env->cx_selector_index = val;
++    env->cx_index = val;
 +    int prev_priv = env->priv;
 +
 +    riscv_cpu_set_mode(env, PRV_S);
@@ -202,7 +221,7 @@ index c50a33397c..6f465464ac 100644
  /*
   * Control and Status Register function table
   * riscv_csr_operations::predicate() must be provided for an implemented CSR
-@@ -4507,6 +4578,15 @@ riscv_csr_operations csr_ops[CSR_TABLE_SIZE] = {
+@@ -4507,6 +4594,15 @@ riscv_csr_operations csr_ops[CSR_TABLE_SIZE] = {
      /* Zcmt Extension */
      [CSR_JVT] = {"jvt", zcmt, read_jvt, write_jvt},
  
@@ -211,9 +230,9 @@ index c50a33397c..6f465464ac 100644
 +    *       configure the build to allow machine mode
 +    */
 +    [CSR_MCX_SELECTOR] = { "mcx_selector", any, read_mcx_selector, write_mcx_selector },
-+    [CSR_CX_SELECTOR_INDEX] = { "cx_selector_index", any, read_cx_selector_index,
-+                                  write_cx_selector_index },
++    [CSR_CX_INDEX] = { "cx_index", any, read_cx_index, write_cx_index },
 +    [CSR_MCX_TABLE] =  { "mcx_table", any, read_mcx_table, write_mcx_table },
++    [CSR_CX_STATUS] =  { "cx_status", any, read_cx_status, write_cx_status },
 +
  #if !defined(CONFIG_USER_ONLY)
      /* Machine Timers and Counters */
@@ -265,17 +284,19 @@ index 33597fe2bb..c737ad5647 100644
 +cx_reg     ....... ..... ..... ... ..... 0001011 @cx_r
 \ No newline at end of file
 diff --git a/target/riscv/machine.c b/target/riscv/machine.c
-index fdde243e04..8323a38a2e 100644
+index fdde243e04..0d8888ff8d 100644
 --- a/target/riscv/machine.c
 +++ b/target/riscv/machine.c
-@@ -409,6 +409,11 @@ const VMStateDescription vmstate_riscv_cpu = {
+@@ -409,6 +409,13 @@ const VMStateDescription vmstate_riscv_cpu = {
          VMSTATE_UINTTL(env.mscratch, RISCVCPU),
          VMSTATE_UINT64(env.stimecmp, RISCVCPU),
  
 +        /* CX */
 +        VMSTATE_UINTTL(env.mcx_selector, RISCVCPU),
-+        VMSTATE_UINTTL(env.cx_selector_index, RISCVCPU),
++        VMSTATE_UINTTL(env.cx_index, RISCVCPU),
 +        VMSTATE_UINTTL(env.mcx_table, RISCVCPU),
++        VMSTATE_UINTTL(env.cx_status, RISCVCPU),
++
 +
          VMSTATE_END_OF_LIST()
      },
