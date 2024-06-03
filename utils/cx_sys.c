@@ -15,8 +15,6 @@
 #define CX_VERSION 1
 #define CX_STATE_AVAIL 1
 #define CX_STATE_UNAVAIL 0
-#define CX_INVALID_SELECTOR 0x10000000
-#define CX_LEGACY 0
 
 typedef int cx_id_t;
 typedef int cx_sel_t;
@@ -178,7 +176,10 @@ SYSCALL_DEFINE0(cx_init)
         asm volatile ("csrw " CX_INDEX ", 0        \n\t");
 
         // 0 initialize the mcx_selector csr
-        // asm volatile ("csrw 0x, 0        \n\t");
+        // asm volatile ("csrw 0x, " MCX_SELECTOR "        \n\t");
+
+        // 0 initialize the cx_status csr
+        // asm volatile ("csrw 0x, " CX_STATUS "        \n\t");
         
         current->cx_map[0].cx_guid = CX_GUID_MULDIV;
         current->cx_map[1].cx_guid = CX_GUID_ADDSUB;
@@ -207,6 +208,7 @@ SYSCALL_DEFINE0(cx_init)
 
                 current->cx_map[i].counter = 0;
         }
+
         return 0;
 }
 
