@@ -4,15 +4,17 @@
 
 :x: Add tests, making sure that the correct state off / init / dirty / clean values are set correctly
 
+:x: Trap on first use of cx_{imm, reg, flex} for virtualization of threads, allowing state sharing via loading / storing to / from memory
+
 :white_check_mark: Fix m mode cx_{open, close, sel}, so that it works the same as u mode
+
+:x: Create CX_STATUS CSR to keep track of errors (%2.2.2)
 
 :x: Document the functionality of cx_{open, close, sel}
 
 :x: Fix builds
 
-:x: Trap on write to mcx_selector, so that it writes to the correct address (0xBC0 instead of 0x802)
-
-:x: Create CX_STATUS CSR to keep track of errors (%2.2.2)
+:x: Modify QEMU so that the proper CSR addresses can be used
 
 :x: Check objdump to make sure that inlined functions are actually being inlined
 
