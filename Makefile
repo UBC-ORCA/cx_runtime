@@ -21,12 +21,14 @@ QEMU-SRC := $(SRC)/cx-qemu
 ZOO-DIR := zoo
 
 cx_objects := $(BDIR)/ci.o $(BDIR)/queue.o $(BDIR)/parser.o
+cx_objects_m := $(BDIR)/ci_m.o $(BDIR)/queue.o $(BDIR)/parser.o
 cx_libraries := $(BDIR)/addsub.o $(BDIR)/muldiv.o $(BDIR)/mulacc.o
 cx_helpers := $(QEMU-BDIR)/addsub_func.o $(QEMU-BDIR)/muldiv_func.o $(QEMU-BDIR)/mulacc_func.o 
 qemu_objects := $(cx_helpers) $(QEMU-BDIR)/exports.o
 
-all: $(QEMU-LDIR)/libmcx_selector.so $(LDIR)/libci.a $(cx_libraries)
+all: $(QEMU-LDIR)/libmcx_selector.so $(LDIR)/libci.a
 
+machine: $(LDIR)/libci_m.a $(QEMU-LDIR)/libmcx_selector.so
 
 ###########   Qemu functionality   ###########
 $(QEMU-LDIR)/libmcx_selector.so: $(qemu_objects) | $(QEMU-LDIR)
@@ -52,6 +54,9 @@ $(QEMU-LDIR):
 
 
 ###########   Building cx runtime   ###########
+$(LDIR)/libci_m.a: $(cx_objects_m) $(cx_libraries) | $(LDIR)
+	$(AR) -rcs $@ $(cx_objects_m) $(cx_libraries)
+
 $(LDIR)/libci.a: $(cx_objects) $(cx_libraries) | $(LDIR)
 	$(AR) -rcs $@ $(cx_objects) $(cx_libraries)
 
