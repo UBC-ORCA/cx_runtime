@@ -6,6 +6,13 @@
 #define CX_STATUS    "0x013" // should be 0x801
 #define MCX_TABLE    "0x145" // should be 0x802
 
+#define CX_INVALID_SELECTOR 0x10000000
+#define CX_LEGACY 0
+#define MCX_VERSION 1
+#define CX_SEL_TABLE_NUM_ENTRIES 1024
+// #define DEBUG 0
+#define UNASSIGNED_STATE -1
+
 #define MAX_CF_IDS 1024
 #define MAX_CX_ID 255
 #define NUM_CX 3

@@ -4,13 +4,6 @@
 
 #include "../include/ci.h"
 
-#define CX_SEL_TABLE_NUM_ENTRIES 1024
-
-#define DEBUG 1
-#define UNASSIGNED_STATE -1
-
-#define MCX_VERSION 1
-
 // TODO: This should be called from somewhere in the kernel
 void cx_init() {
   asm volatile (
@@ -19,14 +12,13 @@ void cx_init() {
   );
 }
 
-int cx_sel(int cx_index) {
+void cx_sel(int cx_index) {
    asm volatile (
     "csrw " CX_INDEX ", %0        \n\t" // TODO: Should be 800
     :
     : "r" (cx_index)
     :
    );
-   return 0;
 }
 
 int32_t cx_open(cx_guid_t cx_guid, cx_share_t cx_share) {
