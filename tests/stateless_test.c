@@ -1,0 +1,45 @@
+#include <stdio.h>
+#include <stdint.h>
+#include <stdlib.h>
+#include <assert.h>
+#include "../../../../research/riscv-tools/cx_runtime/include/ci.h"
+#include "../../../../research/riscv-tools/cx_runtime/zoo/addsub/addsub.h"
+
+void stateless_test() {
+    int a = 3;
+    int b = 5;
+    int result;
+
+    cx_share_t share_A = 0, share_C = 0;
+
+    int cx_sel_A0 = cx_open(CX_GUID_ADDSUB, share_A);
+
+    /* Index 0 should be reserved */
+    assert( cx_sel_A0 == 1 );
+
+    cx_sel(cx_sel_A0);
+
+    result = add(a, b);
+    assert( result == 8 );
+
+    cx_close(cx_sel_A0);
+
+    cx_sel_t cx_sel_A1 = cx_open(CX_GUID_ADDSUB, share_A);
+    cx_sel_t cx_sel_A2 = cx_open(CX_GUID_ADDSUB, share_A);
+
+    // The same index should be returned for stateless cxus
+    assert( cx_sel_A1 == 2 );
+    assert( cx_sel_A1 == cx_sel_A2 );
+    cx_sel( CX_LEGACY );
+}
+
+int main() {
+
+    cx_init();
+    cx_sel( CX_LEGACY );
+    stateless_test();
+
+    printf("stateless test passed\n");
+
+    return 0;
+}
