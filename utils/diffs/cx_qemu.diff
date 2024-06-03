@@ -12,15 +12,14 @@ index d7e0926ff1..84c9a5eaa6 100755
            break
          fi
 diff --git a/meson.build b/meson.build
-index 6c77d9687d..dbc3c14eef 100644
+index 6c77d9687d..e57b285a39 100644
 --- a/meson.build
 +++ b/meson.build
-@@ -3752,13 +3752,16 @@ if targetos == 'darwin'
+@@ -3752,13 +3752,15 @@ if targetos == 'darwin'
    entitlement = find_program('scripts/entitlement.sh')
  endif
  
-+libci_dep = cc.find_library('libci', required: true)
-+libmcx_selector_dep = cc.find_library('libmcx_selector', required: true)
++libmcx_selector_dep = cc.find_library('libmcx_selector', dirs: '/home/bf/research/riscv-tools/cx_runtime/build-qemu/lib/', required: true)
 +
  emulators = {}
  foreach target : target_dirs
@@ -29,7 +28,7 @@ index 6c77d9687d..dbc3c14eef 100644
    target_base_arch = config_target['TARGET_BASE_ARCH']
    arch_srcs = [config_target_h[target]]
 -  arch_deps = []
-+  arch_deps = [libci_dep, libmcx_selector_dep]
++  arch_deps = [libmcx_selector_dep]
    c_args = ['-DNEED_CPU_H',
              '-DCONFIG_TARGET="@0@-config-target.h"'.format(target),
              '-DCONFIG_DEVICES="@0@-config-devices.h"'.format(target)]
