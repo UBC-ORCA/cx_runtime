@@ -1,10 +1,10 @@
 # Short Term Objectives
 
-:x: Fix stateless cxs
+:white_check_mark: Fix stateless cxs
 
 :x: Add tests, making sure that the correct state off / init / dirty / clean values are set correctly
 
-:x: Fix m mode cx_{open, close, sel}, so that it works the same as u mode
+:white_check_mark: Fix m mode cx_{open, close, sel}, so that it works the same as u mode
 
 :x: Document the functionality of cx_{open, close, sel}
 
