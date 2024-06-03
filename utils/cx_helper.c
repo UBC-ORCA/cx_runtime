@@ -19,6 +19,16 @@ target_ulong HELPER(cx_reg)(CPURISCVState *env, target_ulong cf_id,
     uint32_t STATE_ID = GET_CX_STATE(env->mcx_selector);
     uint32_t VERSION = GET_CX_VERSION(env->mcx_selector);
 
+    // not sure if these are the right error values to set it to
+    if (env->mcx_selector == CX_INVALID_SELECTOR) {
+        cx_status_t cx_status = {{env->cx_status}};
+        cx_status.sel.IV = 1;
+        cx_status.sel.IC = 1;
+        cx_status.sel.IS = 1;
+        env->cx_status = cx_status.idx;
+        return (target_ulong)-1;
+    }
+
     if (VERSION != 1) {
         cx_status_t cx_status = {{env->cx_status}};
         cx_status.sel.IV = 1;
@@ -45,11 +55,8 @@ target_ulong HELPER(cx_reg)(CPURISCVState *env, target_ulong cf_id,
     }
     
     assert( CX_ID < MAX_CX_ID); // Possibly redundant
-    // assert( OPCODE_ID <= num_cfs[CX_ID] );
-    // printf("CX_ID: %d, OPCODE_ID: %d\n", CX_ID, OPCODE_ID);
 
     int32_t out = cx_funcs[CX_ID][OPCODE_ID](OPA, OPB, STATE_ID);
 
-    // int32_t out = OPA + OPB;
     return (target_ulong)out;
 } 
