@@ -2,7 +2,7 @@
 
 :white_check_mark: application-level runtime services to allocate CXUs/contexts
 
-:x: simple M-mode mcx_selector operation
+:white_check_mark: simple M-mode mcx_selector operation
 
 :x: application alternating between 2 different CXUs / contexts
 
@@ -16,9 +16,9 @@
 
 :white_check_mark: the application runs in User mode, and changes CXUs/contexts using cx_index/scx_table which are modified in either User mode (early PoC) or Supervisor mode (real Linux, final PoC)
 
-:x: the application runs in Machine mode, and changes CXUs/context using mcx_selector
+:white_check_mark: the application runs in Machine mode, and changes CXUs/context using mcx_selector
 
-:x: ideally, if possible, the application is written in a portable way so it looks the same no matter which mode is used (U/S or M).
+:white_check_mark: ideally, if possible, the application is written in a portable way so it looks the same no matter which mode is used (U/S or M).
 
 :white_check_mark: an ABI allowing proper CXU selection across function calls and library boundaries
 
@@ -28,7 +28,7 @@
 
 :white_check_mark: a user-level API that interfaces with OS-level kernel calls to allocate CXUs and Contexts, define contents of scx_table
 
-:x: Linux changes in S-mode to manipulate scx_table, ensuring contents of table are fully protected from manipulation by the U-mode application (ie, the page is not writable, mapped as read-only in the memory space of the application)
+:white_check_mark: Linux changes in S-mode to manipulate scx_table, ensuring contents of table are fully protected from manipulation by the U-mode application (ie, the page is not writable, mapped as read-only in the memory space of the application)
 
 :x: application fallback/recovery from errors such as missing CXU, illegal CXU instructions, etc
 

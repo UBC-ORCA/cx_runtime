@@ -10,7 +10,7 @@ static const cx_stctxs_t initial_status_word = {.sel = {.cs = INITIAL,
                                                         .state_size = 1,
                                                         .error = 0}};
 
-static cx_stctxs_t cxu_stctx_status[CX_MULACC_NUM_STATES]; // set size to 1
+static cx_stctxs_t cxu_stctx_status[CX_MULACC_NUM_STATES];
 
 static inline int32_t mac_func(int32_t a, int32_t b, int32_t state_id)
 {
@@ -35,18 +35,26 @@ static inline int32_t mulacc_read_status_func( __attribute__((unused)) int32_t u
 static inline int32_t mulacc_write_status_func( int32_t value, 
                                                 __attribute__((unused)) int32_t unused0,
                                                 int32_t state_id ) {
-    // TODO: See if this is a good approach
-    //       And see what to do for the other cases (off, dirty)
+
     int cx_status = GET_CX_STATUS(value);
     int state_size = GET_CX_STATE_SIZE(value);
 
     if (cx_status == INITIAL && state_size == 0) {
-        reset_func(0, 0, state_id);
+        // Write initial first, in case state is read. SW will know that CXU is still
+        // in the process of resetting.
         cxu_stctx_status[state_id] = initial_status_word;
+        // hw update to reset state.
+        reset_func(0, 0, state_id);
+        // write dirty, so OS knows to save state on context switch
+        cxu_stctx_status[state_id].sel.cs = DIRTY;
     }
     else if (cx_status == DIRTY)
     {
         cxu_stctx_status[state_id].sel.cs = DIRTY;
+    } 
+    else if (cx_status == CLEAN)
+    {
+        cxu_stctx_status[state_id].sel.cs = CLEAN;
     }
     
     return 0;
@@ -89,7 +97,6 @@ void init_cx_func_mulacc() {
                                       .error = 0,
                                       .state_size = 1}};
 
-    // TODO: This initialization should be done in cx_init... I think
     for (int i = 0; i < CX_MULACC_NUM_STATES; i++) {
         cxu_stctx_status[i] = off_status;
     }

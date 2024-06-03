@@ -35,9 +35,10 @@ typedef int32_t cxu_sctx_t;      // per state
 
 void       cx_init(void);
 cx_sel_t   cx_open(cx_guid_t cx_guid, cx_share_t cx_share);
-cx_sel_t   cx_sel(cx_sel_t cx_sel);
+void       cx_sel(cx_sel_t cx_sel);
 void       cx_close(cx_sel_t cx_sel);
 cx_error_t cx_read_status(void);
 void       cx_deselect_and_close(cx_sel_t cx_sel);
+void       cx_init(void);
 
 #endif

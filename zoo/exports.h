@@ -18,6 +18,8 @@ extern cx_func_stub_t cx_funcs[MAX_CX_ID];
 
 extern int32_t num_cfs[MAX_CX_ID];
 
+extern int32_t num_states[MAX_STATE_SIZE];
+
 void cx_init_funcs( void );
 
 #endif // EXPORTS_H

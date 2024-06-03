@@ -9,7 +9,7 @@ index 464b34a08f51..64a2bfedd213 100644
 +obj-y           += cx_sys/
 +
 diff --git a/include/linux/sched.h b/include/linux/sched.h
-index 292c31697248..ea384485f33a 100644
+index 292c31697248..862fbd208c1d 100644
 --- a/include/linux/sched.h
 +++ b/include/linux/sched.h
 @@ -39,6 +39,8 @@
@@ -21,12 +21,11 @@ index 292c31697248..ea384485f33a 100644
  /* task_struct member predeclarations (sorted alphabetically): */
  struct audit_context;
  struct bio_list;
-@@ -743,6 +745,28 @@ struct kmap_ctrl {
+@@ -743,6 +745,31 @@ struct kmap_ctrl {
  #endif
  };
  
 +#define NUM_CX 3
-+#define CX_NUM_STATES 3
 +
 +typedef struct {
 +  int size;
@@ -34,9 +33,13 @@ index 292c31697248..ea384485f33a 100644
 +} cx_state_info_t;
 +
 +typedef struct {
++  // static
 +  int cx_guid;
 +  int num_states;
++
++  // dynamic
 +  int counter;
++  int *index; // For stateless cxus ONLY - stores the cx_index
 +  queue_t *avail_state_ids;
 +  cx_state_info_t *cx_state;
 +} cx_entry_t;
@@ -50,7 +53,7 @@ index 292c31697248..ea384485f33a 100644
  struct task_struct {
  #ifdef CONFIG_THREAD_INFO_IN_TASK
  	/*
-@@ -1544,6 +1568,13 @@ struct task_struct {
+@@ -1544,6 +1571,13 @@ struct task_struct {
  	struct user_event_mm		*user_event_mm;
  #endif
  

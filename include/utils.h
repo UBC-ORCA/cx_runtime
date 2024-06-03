@@ -1,11 +1,24 @@
 #ifndef UTILS_H
 #define UTILS_H
 
-// #include <stdlib.h>
+#define MCX_SELECTOR "0x012" // should be 0xBC0
+#define CX_INDEX     "0x011" // should be 0x800
+#define CX_STATUS    "0x013" // should be 0x801
+#define MCX_TABLE    "0x145" // should be 0x802
+
+#define CX_INVALID_SELECTOR 0x10000000
+#define CX_LEGACY 0
+#define MCX_VERSION 1
+#define CX_SEL_TABLE_NUM_ENTRIES 1024
+// #define DEBUG 0
+#define UNASSIGNED_STATE -1
 
 #define MAX_CF_IDS 1024
 #define MAX_CX_ID 255
 #define NUM_CX 3
+
+#define MAX_CXU_ID 1 << CX_ID_BITS
+#define MAX_STATE_ID 1 << STATE_ID_BITS
 
 #define MAX_STATE_SIZE 1024 // number of words in a state
 
@@ -15,6 +28,12 @@
 
 #define CX_STATE_START_INDEX 16
 #define CX_STATE_ID_BITS 8
+
+#define CX_CXE_START_INDEX 28
+#define CX_CXE_BITS 1
+
+#define CX_VERSION_START_INDEX 29
+#define CX_VERSION_ID_BITS 3
 
 /* cx_context_status_word CSR */
 #define CX_STATUS_START_INDEX 0
@@ -26,11 +45,33 @@
 #define CX_ERROR_START_INDEX 24
 #define CX_ERROR_BITS 8
 
-#define CX_INITIALIZER_BITS 1
 #define CX_INITIALIZER_START_INDEX 2
+#define CX_INITIALIZER_BITS 1
 
 #define CX_HW_INIT 0
 #define CX_OS_INIT 1
+
+/* cx_status CSR */
+#define CX_IV_START_INDEX 0
+#define CX_IV_BITS 1
+
+#define CX_IC_START_INDEX 1
+#define CX_IC_BITS 1
+
+#define CX_IS_START_INDEX 2
+#define CX_IS_BITS 1
+
+#define CX_OF_START_INDEX 3
+#define CX_OF_BITS 1
+
+#define CX_IF_START_INDEX 4
+#define CX_IF_BITS 1
+
+#define CX_OP_START_INDEX 5
+#define CX_OP_BITS 1
+
+#define CX_CU_START_INDEX 6
+#define CX_CU_BITS 1
 
 // ========= cx helpers ===========
 
@@ -45,19 +86,29 @@
 #define GET_CX_STATE(cx_sel) \
     GET_BITS(cx_sel, CX_STATE_START_INDEX, CX_STATE_ID_BITS)
 
+#define GET_CX_CXE(cx_sel) \
+    GET_BITS(cx_sel, CX_CXE_START_INDEX, CX_CXE_BITS)
+
+#define GET_CX_VERSION(cx_sel) \
+    GET_BITS(cx_sel, CX_VERSION_START_INDEX, CX_VERSION_ID_BITS)
+
 // ========= cx state context status helpers ===========
 
 #define GET_CX_STATUS(cx_sel) \
     GET_BITS(cx_sel, CX_STATUS_START_INDEX, CX_STATUS_BITS)
 
 #define GET_CX_INITIALIZER(cx_sel) \
-    GET_BITS(cx_sel, CX_INITIALIZER_START_INDEX, CX_INITIALIZER_START_INDEX)
+    GET_BITS(cx_sel, CX_INITIALIZER_START_INDEX, CX_INITIALIZER_BITS)
 
 #define GET_CX_STATE_SIZE(cx_sel) \
     GET_BITS(cx_sel, CX_STATE_SIZE_START_INDEX, CX_STATE_SIZE_BITS)
 
 #define GET_CX_ERROR(cx_sel) \
     GET_BITS(cx_sel, CX_ERROR_START_INDEX, CX_ERROR_BITS)
+
+// ========= cx status helpers ===========
+
+
 
 typedef unsigned int uint;
 
@@ -71,6 +122,32 @@ typedef union {
      } sel;
       uint idx;
 } cx_stctxs_t;
+
+typedef union {
+    struct {
+        uint cx_id     : CX_ID_BITS;
+        uint reserved1 : 8;
+        uint state_id  : CX_STATE_ID_BITS;
+        uint reserved0 : 4;
+        uint cxe       : CX_CXE_BITS;
+        uint version   : CX_VERSION_ID_BITS;
+    } sel;
+        int idx;
+ } cx_selidx_t;
+
+typedef union {
+    struct {
+        uint IV        : CX_IV_BITS;
+        uint IC        : CX_IC_BITS;
+        uint IS        : CX_IS_BITS;
+        uint OF        : CX_OF_BITS;
+        uint IF        : CX_IF_BITS;
+        uint OP        : CX_OP_BITS;
+        uint CU        : CX_CU_BITS;
+        uint reserved0 : 25;
+    } sel;
+    int idx;
+} cx_status_t;
 
 enum {
     OFF, 

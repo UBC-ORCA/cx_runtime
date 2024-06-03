@@ -2,7 +2,7 @@
 #define MULACC_COMMON_H
 
 #define CX_GUID_MULACC 222
-#define CX_MULACC_NUM_FUNCS 2
+#define CX_MULACC_NUM_FUNCS 1024
 #define CX_MULACC_NUM_STATES 2
 
 #endif
