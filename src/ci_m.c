@@ -162,6 +162,7 @@ void cx_close(cx_sel_t cx_sel)
   // Stateless cx's
   if (cx_map[cx_id].num_states == 0) {
     return;
+  // Stateful
   } else {
     state_id_t state_id = GET_CX_STATE(cx_sel);
     cx_map[cx_id].avail_state_ids[state_id] = CX_AVAIL_STATE;
