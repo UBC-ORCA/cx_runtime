@@ -73,6 +73,10 @@
 #define CX_CU_START_INDEX 6
 #define CX_CU_BITS 1
 
+/* cx share type */
+#define CX_SHARE_START_INDEX 0
+#define CX_SHARE_BITS 2
+
 // ========= cx helpers ===========
 
 #define GET_BITS(cx_sel, start_bit, n) \
@@ -108,6 +112,11 @@
 
 // ========= cx status helpers ===========
 
+
+
+// ========= cx share type helpers ==========
+#define GET_SHARE_TYPE(cx_share) \
+    GET_BITS(cx_share, CX_SHARE_START_INDEX, CX_SHARE_BITS) 
 
 
 typedef unsigned int uint;
