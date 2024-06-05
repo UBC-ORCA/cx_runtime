@@ -81,6 +81,41 @@ static int is_valid_state_id(cx_id_t cx_id, state_id_t state_id)
     return true;
 }
 
+static int initialize_state(uint status) {
+        // 4. Read the state to get the state_size
+
+        uint state_size = 1025;
+        state_size = GET_CX_STATE_SIZE(status);
+
+        if (state_size > 1023 || state_size < 0) {
+                return 1;
+        }
+
+        // 5. Set the CXU to initial state
+        uint sw_init = GET_CX_INITIALIZER(status);
+
+        CX_WRITE_STATUS(INITIAL);
+
+        // hw required to set to dirty after init, while sw does it explicitly
+        if (sw_init) {
+                for (int i = 0; i < state_size; i++) {
+                        CX_WRITE_STATE(i, 0);
+                }
+                CX_WRITE_STATUS(DIRTY);
+        }
+        return 0;
+}
+
+/*
+* Read the state before calling initialize state
+*/
+static int initialize_state_rs(void)  
+{
+        uint status = 0xFFFFFFFF;
+        CX_READ_STATUS(status);
+        return initialize_state(status);
+}
+
 // Can also check the cx_sel_indicies
 // static int verify_counters()
 // {
@@ -133,22 +168,75 @@ static int is_valid_state_id(cx_id_t cx_id, state_id_t state_id)
 //         }
 // }
 
-static void copy_state_to_os( int32_t state_id, int32_t cx_id, int32_t state_size , int32_t *dest ) {
-        for (int i = 0; i < state_size; i++) {
-                CX_READ_STATE(dest[i], i);
+static void copy_state_to_os( int cx_index, cx_os_state_t dest ) {
+        cx_sel_t prev_sel_index = -1;
+
+        // Save the previous index
+        asm volatile (
+                        "csrr %0, " CX_INDEX "        \n\t"
+                        : "=r" (prev_sel_index)
+                        :
+                        :
+        );
+
+        // write the new index
+        asm volatile (
+                        "csrw " CX_INDEX " , %0        \n\t"
+                        : 
+                        : "r" (cx_index)
+                        :
+        );
+        
+        for (int i = 0; i < dest.size; i++) {
+                CX_READ_STATE(dest.data[i], i);
         }
+
+        uint status = 0xFFFFFFFF;
+        CX_READ_STATUS(status);
+        dest.ctx_status = status;
+
+        int failure = initialize_state(status);
+        if (failure) {
+                return;
+        }
+
+        // restore previous index
+        asm volatile (
+                        "csrw " CX_INDEX " , %0        \n\t"
+                        : 
+                        : "r" (prev_sel_index)
+                        :
+        );
 }
 
-// static void write_state_to_cxu( int32_t state_id, int32_t cx_id, int32_t state_size , int32_t *dest ) {
-//         for (int i = 0; i < state_size; i++) {
-//                 CX_WRITE_STATE(dest[i], i);
-//         }
-// }
+static void copy_state_from_os( cx_os_state_t src, int cx_index ) {
+        // write the new index
+        asm volatile (
+                        "csrw " CX_INDEX " , %0        \n\t"
+                        : 
+                        : "r" (cx_index)
+                        :
+        );
+        for (int i = 0; i < src.size; i++) {
+                CX_WRITE_STATE(i, src.data[i]);
+        }
 
+}
+
+/* 
+* Initializes the cx_map, cx_table, and sets the CX_INDEX, MCX_SELECTOR, and CX_STATUS CSRs 
+* to their initial values (0).
+*/
 SYSCALL_DEFINE0(cx_init)
 {
-        current->mcx_table = kzalloc(sizeof(int) * 1024, GFP_KERNEL);
+        current->mcx_table = kzalloc(sizeof(int) * CX_SEL_TABLE_NUM_ENTRIES, GFP_KERNEL);
         if (!current->mcx_table) {
+                // some sort of allocation error here
+                return -1;
+        }
+
+        current->cx_os_state_table = kzalloc(sizeof(cx_os_state_t) * CX_SEL_TABLE_NUM_ENTRIES, GFP_KERNEL);
+        if (!current->cx_os_state_table) {
                 // some sort of allocation error here
                 return -1;
         }
@@ -203,7 +291,6 @@ SYSCALL_DEFINE0(cx_init)
                 // stateful cxu
                 else {
                         current->cx_map[i].avail_state_ids = make_queue(num_states);
-                        current->cx_map[i].cx_state = kzalloc(sizeof(cx_state_info_t) * num_states, GFP_KERNEL);
                 }
 
                 current->cx_map[i].counter = 0;
@@ -218,7 +305,7 @@ SYSCALL_DEFINE0(cx_init)
 *                return the cx_index. Otherwise, allocate an index and increment the counter.
 * Stateful cxs:  allocate an unused state to a free cx_table index.
 */
-SYSCALL_DEFINE1(cx_open, int, cx_guid)
+SYSCALL_DEFINE2(cx_open, int, cx_guid, int, cx_share)
 {
         // 1. Check if we have the resources necessary to open a new entry on the scx_table
         // Check to see if there is a free cx_sel_table index
@@ -302,32 +389,15 @@ SYSCALL_DEFINE1(cx_open, int, cx_guid)
                         :
                 );
 
-                // 4. Read the state to get the state_size
-                uint status = 0xFFFFFFFF;
-                CX_READ_STATUS(status);
-                uint state_size = 1025;
-                state_size = GET_CX_STATE_SIZE(status);
-
-                if (state_size > 1023 || state_size < 0) {
+                // 4 + 5
+                int failure = initialize_state_rs();
+                if (failure) {
                         return -1;
                 }
 
-                // 5. Set the CXU to initial state
-                uint sw_init = GET_CX_INITIALIZER(status);
-
-                CX_WRITE_STATUS(INITIAL);
-
-                // hw required to set to dirty after init, while sw does it explicitly
-                if (sw_init) {
-                        for (int i = 0; i < state_size; i++) {
-                                CX_WRITE_STATE(i, 0);
-                        }
-                        CX_WRITE_STATUS(DIRTY);
-                }
-
-
                 // 6. Allocate memory in the OS for the state
-                current->cx_map[cx_id].cx_state[state_id].data = kzalloc(MAX_STATE_SIZE, GFP_KERNEL);
+                current->cx_os_state_table[cx_index].data = kzalloc(MAX_STATE_SIZE, GFP_KERNEL);
+                current->cx_os_state_table[cx_index].share = GET_SHARE_TYPE(cx_share);
 
                 // 7. Write the previous selector value back to cx_index
                 asm volatile (
@@ -337,7 +407,6 @@ SYSCALL_DEFINE1(cx_open, int, cx_guid)
                         :
                 );
         }
-        
         return cx_index;
 }
 
@@ -391,13 +460,12 @@ SYSCALL_DEFINE1(cx_close, int, cx_sel)
                 // delete cx_sel_map_index from map
                 // current->cx_map[cx_id].cx_sel_map_index[state_id] = -1;
 
+                // Free from the OS
+                kfree(current->cx_os_state_table[cx_sel].data);
+
                 // let the state be used again
-                // TODO: There will need to be mutual exculsion in the case with multiple threads
                 enqueue(current->cx_map[cx_id].avail_state_ids, state_id);
                 enqueue(current->cx_table_avail_indices, cx_sel);
-
-                // Free from the OS
-                kfree(current->cx_map[cx_id].cx_state[state_id].data);
 
         // Stateless cx's
         } else if (current->cx_map[cx_id].num_states == 0) {
@@ -419,6 +487,73 @@ SYSCALL_DEFINE1(cx_close, int, cx_sel)
                 }
         } else {
                 return -1; // Shouldn't make it to this case
+        }
+        return 0;
+}
+
+
+SYSCALL_DEFINE0(context_save)
+{
+        cx_sel_t cx_sel_index = -1;
+        asm volatile (
+                        "csrr %0, " CX_INDEX "        \n\t"
+                        : "=r" (cx_sel_index)
+                        :
+                        :
+        );
+        current->cx_index = cx_sel_index;
+
+        for (int i = 0; i < CX_SEL_TABLE_NUM_ENTRIES; i++) {
+                // TODO: Will need to check to see if we have to save each state
+                if (current->mcx_table[i] != CX_INVALID_SELECTOR) {
+                        copy_state_to_os( current->mcx_table[i], current->cx_os_state_table[i]);
+                }
+        }
+
+        uint cx_error = 0xFFFFFFFF;
+        asm volatile (
+                "csrr %0, " CX_STATUS ";     \n\t"
+                : "=r" (cx_error)
+                :
+                :
+        );
+        current->cx_status = cx_error;
+
+        return 0;
+}
+
+SYSCALL_DEFINE0(context_restore)
+{
+        // 1. Restore index
+        asm volatile (
+                        "csrw  " CX_INDEX ", %0       \n\t"
+                        : "=r" (current->cx_index)
+                        : 
+                        :
+        );
+
+        // 2. Restore error
+        asm volatile (
+                        "csrw  " CX_STATUS ", %0       \n\t"
+                        : "=r" (current->cx_status)
+                        : 
+                        :
+        );
+
+        // 3. Restore mcx_table
+        asm volatile (
+                "csrw  " MCX_TABLE ", %0       \n\t"
+                : "=r" (current->mcx_table)
+                : 
+                :
+        );
+
+        // 4. Restore state information
+        for (int i = 0; i < CX_SEL_TABLE_NUM_ENTRIES; i++) {
+                // TODO: Will need to check to see if we have to save each state
+                if (current->mcx_table[i] != CX_INVALID_SELECTOR) {
+                        copy_state_from_os( current->cx_os_state_table[i], current->mcx_table[i] );
+                }
         }
         return 0;
 }
