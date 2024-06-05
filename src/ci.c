@@ -1,6 +1,5 @@
 #include <stdint.h>
 #include <stdlib.h>
-#include <stdio.h>
 
 #include "../include/ci.h"
 
@@ -49,19 +48,19 @@ void cx_close(cx_sel_t cx_sel)
   );
 }
 
-uint cx_error() {
-  int cx_error = -1;
+cx_error_t cx_error_read() {
+  cx_error_t cx_error = 0xFFFFFFFF;
   asm volatile (
     "csrr %0, " CX_STATUS ";     \n\t"
     : "=r" (cx_error)
     :
     :
   );
-  if (cx_error == -1) {
-    printf("error reading cx_error\n");
-    exit ( -1 );
-  }
   return cx_error;
+}
+
+void cx_error_clear() {
+  asm volatile ("csrw " CX_STATUS ",  0;     \n\t");
 }
 
 
