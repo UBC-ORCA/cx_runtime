@@ -32,8 +32,10 @@ void state_test() {
     assert( cx_sel_A0 == 1 );
 
     cx_sel(cx_sel_A0);
-    uint status = CX_READ_STATUS();
+    cx_index = cx_csr_read(CX_INDEX);
+    assert ( cx_index == cx_sel_A0 );
 
+    uint status = CX_READ_STATUS();
     uint cs_status = GET_CX_STATUS(status);
     uint state_size = GET_CX_STATE_SIZE(status);
     uint error = GET_CX_ERROR(status);
@@ -62,22 +64,33 @@ void state_test() {
 
     cx_close(cx_sel_A0);
 
-    // Testing multiple states
+    /* Testing multiple states */
     int cx_sel_A1 = cx_open(CX_GUID_MULACC, share_A);
+    cx_index = cx_csr_read(CX_INDEX);
+    assert( cx_index == cx_sel_A0 );
+
     int cx_sel_A2 = cx_open(CX_GUID_MULACC, share_A);
+    cx_index = cx_csr_read(CX_INDEX);
+    assert( cx_index == cx_sel_A0 );
 
     assert( cx_sel_A1 == 2 );
     assert( cx_sel_A2 == 3 );
 
     cx_sel(cx_sel_A1);
+    cx_index = cx_csr_read(CX_INDEX);
+    assert ( cx_index == cx_sel_A1 );
     result = mac(a, a);
     assert( result == 9 );
 
     cx_sel(cx_sel_A2);
+    cx_index = cx_csr_read(CX_INDEX);
+    assert ( cx_index == cx_sel_A2 );
     result = mac(b, b);
     assert( result == 25 );
 
     cx_close(cx_sel_A1);
+    cx_index = cx_csr_read(CX_INDEX);
+    assert ( cx_index == cx_sel_A2 );
 
     uint cx_sel_test = -1;
     // Making sure free states are able to be used again
@@ -87,12 +100,20 @@ void state_test() {
     }
 
     cx_sel_test = cx_open(CX_GUID_MULACC, 0);
-    cx_close(cx_sel_test);
     assert( cx_sel_test == 1 );
+    cx_index = cx_csr_read(CX_INDEX);
+    assert ( cx_index == cx_sel_A2 );
+
+    cx_close(cx_sel_test);
+    cx_index = cx_csr_read(CX_INDEX);
+    assert ( cx_index == cx_sel_A2 );
 
     cx_sel_test = cx_open(CX_GUID_MULACC, 0);
-    cx_close(cx_sel_test);
     assert( cx_sel_test == 2 );
+    cx_index = cx_csr_read(CX_INDEX);
+    assert ( cx_index == cx_sel_A2 );
+
+    cx_close(cx_sel_test);
 
     cx_sel_test = cx_open(CX_GUID_MULACC, 0);
     cx_close(cx_sel_test);
@@ -118,7 +139,6 @@ void state_test() {
     // Table full
     // assert( cx_sel[i] == -1 );
     cx_sel( CX_LEGACY );
-    
 }
 
 int main() {
