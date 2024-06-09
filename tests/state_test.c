@@ -31,6 +31,7 @@ void state_test() {
     /* Index 0 should be reserved */
     assert( cx_sel_A0 == 1 );
 
+    cx_error_clear();
     cx_sel(cx_sel_A0);
     cx_index = cx_csr_read(CX_INDEX);
     assert ( cx_index == cx_sel_A0 );
@@ -62,6 +63,9 @@ void state_test() {
     assert( error == 0 );       // No error
     assert( initializer_cfg == 0 ); // initializer unchanged
 
+    cx_error = cx_error_read();
+    assert ( cx_error == 0 );
+
     cx_close(cx_sel_A0);
 
     /* Testing multiple states */
@@ -76,17 +80,23 @@ void state_test() {
     assert( cx_sel_A1 == 2 );
     assert( cx_sel_A2 == 3 );
 
+    cx_error_clear();
     cx_sel(cx_sel_A1);
     cx_index = cx_csr_read(CX_INDEX);
     assert ( cx_index == cx_sel_A1 );
     result = mac(a, a);
     assert( result == 9 );
+    cx_error = cx_error_read();
+    assert ( cx_error == 0 );
 
+    cx_error_clear();
     cx_sel(cx_sel_A2);
     cx_index = cx_csr_read(CX_INDEX);
     assert ( cx_index == cx_sel_A2 );
     result = mac(b, b);
     assert( result == 25 );
+    cx_error = cx_error_read();
+    assert ( cx_error == 0 );
 
     cx_close(cx_sel_A1);
     cx_index = cx_csr_read(CX_INDEX);
