@@ -84,8 +84,7 @@ static int is_valid_state_id(cx_id_t cx_id, state_id_t state_id)
 static int initialize_state(uint status) 
 {
         // 4. Read the state to get the state_size
-        uint state_size = 1025;
-        state_size = GET_CX_STATE_SIZE(status);
+        uint state_size = GET_CX_STATE_SIZE(status);
 
         if (state_size > 1023 || state_size < 0) {
                 return 1;
@@ -151,22 +150,10 @@ static int initialize_state(uint status)
 //     return true;
 // }
 
-// static void reset_state( int32_t state_id, int32_t state_size ) {
-//         for (int i = 0; i < state_size; i++) {
-//                 int a = 0;
-//                 CX_WRITE_STATE(i, a);
-//         }
-// }
-
-static void copy_state_to_os( int cx_index, cx_os_state_t dest ) 
+static void copy_state_to_os( uint cx_index, cx_os_state_t dest ) 
 {
-        // Save the previous index
-        cx_sel_t prev_sel_index = cx_csr_read(CX_INDEX);
-
-        uint cx_sel = current->mcx_table[prev_sel_index];
-
         // write the new index
-        cx_csr_write(MCX_SELECTOR, cx_sel);
+        cx_csr_write(CX_INDEX, cx_index);
         
         for (int i = 0; i < dest.size; i++) {
                 dest.data[i] = CX_READ_STATE(i);
@@ -174,20 +161,10 @@ static void copy_state_to_os( int cx_index, cx_os_state_t dest )
 
         uint status = CX_READ_STATUS();
         dest.ctx_status = status;
-
-        int failure = initialize_state(status);
-        if (failure) {
-                return;
-        }
-        // restore previous index
-        cx_csr_write(CX_INDEX, prev_sel_index);
 }
 
-static void copy_state_from_os( cx_os_state_t src, int cx_index ) {
-        
-        // write the new index
-        cx_csr_write(CX_INDEX, cx_index);
-
+static void copy_state_from_os( cx_os_state_t src, int cx_index ) 
+{
         for (int i = 0; i < src.size; i++) {
                 CX_WRITE_STATE(i, src.data[i]);
         }
@@ -446,13 +423,31 @@ SYSCALL_DEFINE1(cx_close, int, cx_sel)
 
 SYSCALL_DEFINE0(context_save)
 {
+        // Save the cx_index
         cx_sel_t cx_sel_index = cx_csr_read(CX_INDEX);
         current->cx_index = cx_sel_index;
 
         for (int i = 1; i < CX_SEL_TABLE_NUM_ENTRIES; i++) {
-                // TODO: Will need to check to see if we have to save each state
-                if (current->mcx_table[i] != CX_INVALID_SELECTOR) {
-                        copy_state_to_os( current->mcx_table[i], current->cx_os_state_table[i]);
+
+                cx_stctxs_t cx_stctxs = {{current->cx_os_state_table[i].ctx_status}};
+
+                // save the state data
+                if (current->mcx_table[i] != CX_INVALID_SELECTOR && cx_stctxs.sel.cs != DIRTY) {
+                        
+                        // write the index to be saved
+                        cx_csr_write(CX_INDEX, i);
+
+                        // copy state data to OS
+                        copy_state_to_os(i, current->cx_os_state_table[i]);
+
+                        // set the state context back to its initial state
+                        int failure = initialize_state(cx_stctxs.idx);
+                        if (failure) {
+                                return -1;
+                        }
+
+                        // save the state context status
+                        current->cx_os_state_table[i].ctx_status = cx_stctxs.idx;
                 }
         }
 
@@ -460,33 +455,43 @@ SYSCALL_DEFINE0(context_save)
 
         current->cx_status = cx_error;
 
+        cx_csr_write(CX_INDEX, current->cx_index);
+
         return 0;
 }
 
 SYSCALL_DEFINE0(context_restore)
 {
-        // 1. Restore index
-        cx_csr_write(CX_INDEX, current->cx_index);
 
-        // 2. Restore error
+        // 1. Restore error
         cx_csr_write(CX_STATUS, current->cx_status);
         
-        // 3. Restore mcx_table
+        // 2. Restore mcx_table
         cx_csr_write(MCX_TABLE, &current->mcx_table[0]);
 
-        // 4. Restore state information
+        // 3. Restore state information
         for (int i = 1; i < CX_SEL_TABLE_NUM_ENTRIES; i++) {
-                // TODO: Will need to check to see if we have to save each state
-                if (current->mcx_table[i] != CX_INVALID_SELECTOR) {
-                        copy_state_from_os( current->cx_os_state_table[i], i );
-                }
-
-                // Restoring status word + setting to clean
+                
                 cx_stctxs_t cx_stctxs = {{current->cx_os_state_table[i].ctx_status}};
-                cx_stctxs.sel.cs = CLEAN;
-                current->cx_os_state_table[i].ctx_status = cx_stctxs.idx;
-                CX_WRITE_STATUS(cx_stctxs.idx);
+
+                // ignore table indicies that aren't occupied, and only save dirty states
+                if (current->mcx_table[i] != CX_INVALID_SELECTOR && cx_stctxs.sel.cs != DIRTY) {
+                        
+                        // Write the index to be restored
+                        cx_csr_write(CX_INDEX, i);
+                        
+                        // Restore state
+                        copy_state_from_os( current->cx_os_state_table[i], i );
+                        
+                        // Restoring status word + setting to clean
+                        cx_stctxs.sel.cs = CLEAN;
+                        current->cx_os_state_table[i].ctx_status = cx_stctxs.idx;
+                        CX_WRITE_STATUS(cx_stctxs.idx);
+                }
         }
+
+        // 4. Restore index
+        cx_csr_write(CX_INDEX, current->cx_index);
 
         return 0;
 }
