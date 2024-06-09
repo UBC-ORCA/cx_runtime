@@ -15,38 +15,40 @@ void state_test() {
   int cx_sel_C0 = cx_open(CX_GUID_MULACC, share_C);
   assert(cx_sel_C0 == 1);
 
-  printf("cx_sel_C0: %d\n", cx_sel_C0);
-  printf("a: %d, b: %d\n", a, b);
-
   cx_sel(cx_sel_C0);
   result = mac(a, a);
-  assert(result == 9);
-  printf("result (mulacc: a * a, state_id: 0) : %d\n", result);
-  
+  assert(result == 9);  
+
+  cx_stctxs_t expected_stctxs = {.sel = {
+                                    .cs = DIRTY,
+                                    .error = 0,
+                                    .initializer = CX_HW_INIT,
+                                    .state_size = 1
+                                  }};
+
   uint cx_status = CX_READ_STATUS();
-  printf("status: %08x\n", cx_status);
+  assert( cx_status == expected_stctxs.idx );
 
   cx_context_save();
   result = mac(a, b);
-  // assert(result == 24);
-  printf("result (mulacc: a * b, state_id: 0) : %d\n", result);
+  assert( result == 15 );
+  int32_t state_result = CX_READ_STATE(0);
+  assert(result == state_result);
   
   cx_context_restore();
   result = CX_READ_STATE(0);
   cx_status = CX_READ_STATUS();
-
-  printf("result (should be 9, state_id: 0) : %d, status: %08x\n", result, cx_status);
-
-  printf("done!\n");
+  expected_stctxs.sel.cs = CLEAN;
+  assert( cx_status == expected_stctxs.idx );
   
   cx_sel(CX_LEGACY);
-
-
 }
 
 int main() {
     cx_init();
     cx_sel(CX_LEGACY);
     state_test();
+    printf("Context save / restore test complete\n");
+
     return 0;
 }
