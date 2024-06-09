@@ -165,12 +165,15 @@ enum {
     DIRTY
 };       
 
-#define CX_REG_HELPER(cf_id, result, rs1, rs2)      ({   \
+#define CX_REG_HELPER(cf_id, rs1, rs2)      ({           \
+    register unsigned long __v;                          \
     asm volatile("      cx_reg " #cf_id ",%0,%1,%2;\n\t" \
-                 : "=r" (result)                         \
+                 : "=r" (__v)                            \
                  : "r" (rs1), "r" (rs2)                  \
                  :                                       \
-    );   }) 
+    );                                                   \
+	__v;							                     \
+    }) 
 
 
 #define __ASM_STR(x)	#x
@@ -205,14 +208,9 @@ enum {
                  :                                         \
     );   })
 
-#define CX_REG(cf_id, rs1, rs2)                         \
-    int32_t result = -1;                                \
-    CX_REG_HELPER(cf_id, result, rs1, rs2);             \
-    return result
-
-#define CX_READ_STATUS(dest)                CX_REG_HELPER(1023, dest, 0, 0)
+#define CX_READ_STATUS()                CX_REG_HELPER(1023, 0, 0)
 // #define CX_WRITE_STATUS(status)             CX_REG_HELPER(1022, 0, status, 0)
-#define CX_READ_STATE(dest, index)          CX_REG_HELPER(1021, dest, index, 0)
+#define CX_READ_STATE(index)            CX_REG_HELPER(1021, index, 0)
 // #define CX_WRITE_STATE(index, value)        CX_REG_HELPER(1020, 0, index, value)
 
 #endif

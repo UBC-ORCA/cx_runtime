@@ -23,8 +23,7 @@ void state_test() {
   assert(result == 9);
   printf("result (mulacc: a * a, state_id: 0) : %d\n", result);
   
-  uint cx_status = 1;
-  CX_READ_STATUS(cx_status);
+  uint cx_status = CX_READ_STATUS();
   printf("status: %08x\n", cx_status);
 
   cx_context_save();
@@ -33,8 +32,8 @@ void state_test() {
   printf("result (mulacc: a * b, state_id: 0) : %d\n", result);
   
   cx_context_restore();
-  CX_READ_STATE(result, 0);
-  CX_READ_STATUS(cx_status);
+  result = CX_READ_STATE(0);
+  cx_status = CX_READ_STATUS();
 
   printf("result (should be 9, state_id: 0) : %d, status: %08x\n", result, cx_status);
 

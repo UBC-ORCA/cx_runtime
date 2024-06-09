@@ -166,14 +166,13 @@ static void copy_state_to_os( int cx_index, cx_os_state_t dest )
         uint cx_sel = current->mcx_table[prev_sel_index];
 
         // write the new index
-        cx_csr_write(MCX_SELECTOR, cx_index);
+        cx_csr_write(MCX_SELECTOR, cx_sel);
         
         for (int i = 0; i < dest.size; i++) {
-                CX_READ_STATE(dest.data[i], i);
+                dest.data[i] = CX_READ_STATE(i);
         }
 
-        uint status = 0xFFFFFFFF;
-        CX_READ_STATUS(status);
+        uint status = CX_READ_STATUS();
         dest.ctx_status = status;
 
         int failure = initialize_state(status);
@@ -344,8 +343,7 @@ SYSCALL_DEFINE2(cx_open, int, cx_guid, int, cx_share)
                 cx_csr_write(CX_INDEX, cx_index);
 
                 // 4 + 5
-                uint status = 0xFFFFFFFF;
-                CX_READ_STATUS(status);
+                uint status = CX_READ_STATUS();
                 int failure = initialize_state(status);
                 if (failure) {
                         return -1;

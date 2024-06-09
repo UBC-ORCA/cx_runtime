@@ -14,14 +14,25 @@ void state_test() {
 
     cx_share_t share_A = 0, share_C = 0;
 
+    /* cx_index should be set to 0 initially */
+    uint cx_index = cx_csr_read(CX_INDEX);
+    assert ( cx_index == 0 );
+
+    /* cx_error should be set to 0 initially */
+    uint cx_error = cx_error_read();
+    assert ( cx_error == 0 );
+
     int cx_sel_A0 = cx_open(CX_GUID_MULACC, share_A);
+
+    /* cx_open should not modify the selected cxu */
+    cx_index = cx_csr_read(CX_INDEX);
+    assert ( cx_index == 0 );
   
     /* Index 0 should be reserved */
     assert( cx_sel_A0 == 1 );
 
     cx_sel(cx_sel_A0);
-    uint status = 0;
-    CX_READ_STATUS(status);
+    uint status = CX_READ_STATUS();
 
     uint cs_status = GET_CX_STATUS(status);
     uint state_size = GET_CX_STATE_SIZE(status);
@@ -37,7 +48,7 @@ void state_test() {
     result = mac(a, b);
     assert( result == 15 );
 
-    CX_READ_STATUS(status);
+    status = CX_READ_STATUS();
 
     cs_status = GET_CX_STATUS(status);
     state_size = GET_CX_STATE_SIZE(status);

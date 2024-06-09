@@ -4,15 +4,15 @@
 
 __CX__ int32_t add( int32_t a, int32_t b ) 
 {
-    CX_REG(0, a, b);
+    return CX_REG_HELPER(0, a, b);
 }
 
 __CX__ int32_t sub( int32_t a, int32_t b ) 
 {
-    CX_REG(1, a, b);
+    return CX_REG_HELPER(1, a, b);
 }
 
 __CX__ int32_t add_1000( int32_t a, int32_t b ) 
 {
-    CX_REG(2, a, b);
+    return CX_REG_HELPER(2, a, b);
 }

@@ -4,10 +4,10 @@
 
 __CX__ int32_t mac( int32_t a, int32_t b ) 
 {
-    CX_REG(0, a, b);
+    return CX_REG_HELPER(0, a, b);
 }
 
 __CX__ int32_t reset( int32_t a, int32_t b ) 
 {
-    CX_REG(1, 0, 0);
+    return CX_REG_HELPER(1, 0, 0);
 }

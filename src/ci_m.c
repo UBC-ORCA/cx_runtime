@@ -123,8 +123,7 @@ int32_t cx_open(cx_guid_t cx_guid, cx_share_t cx_share) {
         cx_sel_t cx_sel = gen_cx_sel(cx_id, state_id, MCX_VERSION);
         // TODO: Check if the cx_selector is valid / non-zero
 
-        uint status = 0xFFFFFFFF;
-        CX_READ_STATUS(status);
+        uint status = CX_READ_STATUS();
         uint state_size = 1025;
         state_size = GET_CX_STATE_SIZE(status);
 

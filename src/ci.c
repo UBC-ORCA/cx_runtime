@@ -44,8 +44,7 @@ void cx_close(cx_sel_t cx_sel)
 }
 
 cx_error_t cx_error_read() {
-  cx_error_t cx_error = cx_csr_read(CX_STATUS);
-  return cx_error;
+  return cx_csr_read(CX_STATUS);
 }
 
 void cx_error_clear() {
