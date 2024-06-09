@@ -160,25 +160,13 @@ static int initialize_state(uint status)
 
 static void copy_state_to_os( int cx_index, cx_os_state_t dest ) 
 {
-        cx_sel_t prev_sel_index = -1;
-
         // Save the previous index
-        asm volatile (
-                        "csrr %0, " CX_INDEX "        \n\t"
-                        : "=r" (prev_sel_index)
-                        :
-                        :
-        );
+        cx_sel_t prev_sel_index = cx_csr_read(CX_INDEX);
 
         uint cx_sel = current->mcx_table[prev_sel_index];
 
         // write the new index
-        asm volatile (
-                        "csrw " MCX_SELECTOR " , %0        \n\t"
-                        : 
-                        : "r" (cx_sel)
-                        :
-        );
+        cx_csr_write(MCX_SELECTOR, cx_index);
         
         for (int i = 0; i < dest.size; i++) {
                 CX_READ_STATE(dest.data[i], i);
@@ -193,30 +181,20 @@ static void copy_state_to_os( int cx_index, cx_os_state_t dest )
                 return;
         }
         // restore previous index
-        asm volatile (
-                        "csrw " CX_INDEX " , %0        \n\t"
-                        : 
-                        : "r" (prev_sel_index)
-                        :
-        );
+        cx_csr_write(CX_INDEX, prev_sel_index);
 }
 
 static void copy_state_from_os( cx_os_state_t src, int cx_index ) {
         
         // write the new index
-        asm volatile (
-                        "csrw " CX_INDEX " , %0        \n\t"
-                        : 
-                        : "r" (cx_index)
-                        :
-        );
+        cx_csr_write(CX_INDEX, cx_index);
 
         for (int i = 0; i < src.size; i++) {
                 CX_WRITE_STATE(i, src.data[i]);
         }
 }
 
-/* 
+/*
 * Initializes the cx_map, cx_table, and sets the CX_INDEX, MCX_SELECTOR, and CX_STATUS CSRs 
 * to their initial values (0).
 */
@@ -246,21 +224,16 @@ SYSCALL_DEFINE0(cx_init)
         }
 
         // Update the mcx_table csr with the mcx_table address
-        asm volatile (
-                "csrw " MCX_TABLE ", %0        \n\t" // TODO: 145 is temporary - will be 0xBC1 when QEMU works
-                :
-                : "r" (&current->mcx_table[0])
-                :
-                );
+        cx_csr_write(MCX_TABLE, &current->mcx_table[0]);
 
         // 0 initialize the cx_index table csr
-        asm volatile ("csrw " CX_INDEX ", 0        \n\t");
+        cx_csr_write(CX_INDEX, 0);
 
         // 0 initialize the mcx_selector csr
-        asm volatile ("csrw " MCX_SELECTOR ", 0        \n\t");
+        cx_csr_write(MCX_SELECTOR, 0);
 
         // 0 initialize the cx_status csr
-        asm volatile ("csrw " CX_STATUS ", 0        \n\t");
+        cx_csr_write(CX_STATUS, 0);
         
         current->cx_map[0].cx_guid = CX_GUID_MULDIV;
         current->cx_map[1].cx_guid = CX_GUID_ADDSUB;
@@ -359,15 +332,8 @@ SYSCALL_DEFINE2(cx_open, int, cx_guid, int, cx_share)
                 cx_sel = gen_cx_sel(cx_id, state_id, CX_VERSION);
                 current->mcx_table[cx_index] = cx_sel;
 
-                cx_sel_t prev_sel_index = 1025;
-
                 // 2. Store the previous value in the cx_index csr
-                asm volatile (
-                        "csrr %0, " CX_INDEX "        \n\t" // cx_index csr
-                        : "=r" (prev_sel_index)
-                        :
-                        :
-                );
+                cx_sel_t prev_sel_index = cx_csr_read(CX_INDEX);
 
                 // check if previous selector value is valid
                 if (prev_sel_index > 1023 || prev_sel_index < 0) {
@@ -375,12 +341,7 @@ SYSCALL_DEFINE2(cx_open, int, cx_guid, int, cx_share)
                 }
 
                 // 3. Update cx_index to the new value
-                asm volatile (
-                        "csrw " CX_INDEX ", %0        \n\t" // cx_index csr
-                        : 
-                        : "r" (cx_index)
-                        :
-                );
+                cx_csr_write(CX_INDEX, cx_index);
 
                 // 4 + 5
                 uint status = 0xFFFFFFFF;
@@ -396,12 +357,7 @@ SYSCALL_DEFINE2(cx_open, int, cx_guid, int, cx_share)
                 current->cx_os_state_table[cx_index].size = GET_CX_STATE_SIZE(status);
 
                 // 7. Write the previous selector value back to cx_index
-                asm volatile (
-                        "csrr %0, " CX_INDEX "        \n\t"
-                        :
-                        : "r" (prev_sel_index)
-                        :
-                );
+                cx_csr_write(CX_INDEX, prev_sel_index);
         }
         return cx_index;
 }
@@ -492,13 +448,7 @@ SYSCALL_DEFINE1(cx_close, int, cx_sel)
 
 SYSCALL_DEFINE0(context_save)
 {
-        cx_sel_t cx_sel_index = -1;
-        asm volatile (
-                        "csrr %0, " CX_INDEX "        \n\t"
-                        : "=r" (cx_sel_index)
-                        :
-                        :
-        );
+        cx_sel_t cx_sel_index = cx_csr_read(CX_INDEX);
         current->cx_index = cx_sel_index;
 
         for (int i = 1; i < CX_SEL_TABLE_NUM_ENTRIES; i++) {
@@ -508,13 +458,7 @@ SYSCALL_DEFINE0(context_save)
                 }
         }
 
-        uint cx_error = 0xFFFFFFFF;
-        asm volatile (
-                "csrr %0, " CX_STATUS ";     \n\t"
-                : "=r" (cx_error)
-                :
-                :
-        );
+        uint cx_error = cx_csr_read(CX_STATUS);
 
         current->cx_status = cx_error;
 
@@ -524,28 +468,13 @@ SYSCALL_DEFINE0(context_save)
 SYSCALL_DEFINE0(context_restore)
 {
         // 1. Restore index
-        asm volatile (
-                        "csrw  " CX_INDEX ", %0       \n\t"
-                        : 
-                        : "r" (current->cx_index)
-                        :
-        );
+        cx_csr_write(CX_INDEX, current->cx_index);
 
         // 2. Restore error
-        asm volatile (
-                        "csrw  " CX_STATUS ", %0       \n\t"
-                        : 
-                        : "r" (current->cx_status)
-                        :
-        );
+        cx_csr_write(CX_STATUS, current->cx_status);
         
         // 3. Restore mcx_table
-        asm volatile (
-                "csrw  " MCX_TABLE ", %0       \n\t"
-                : 
-                : "r" (&current->mcx_table[0])
-                :
-        );
+        cx_csr_write(MCX_TABLE, &current->mcx_table[0]);
 
         // 4. Restore state information
         for (int i = 1; i < CX_SEL_TABLE_NUM_ENTRIES; i++) {

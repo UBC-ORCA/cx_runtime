@@ -1,10 +1,10 @@
 #ifndef UTILS_H
 #define UTILS_H
 
-#define MCX_SELECTOR "0x012" // should be 0xBC0
-#define CX_INDEX     "0x011" // should be 0x800
-#define CX_STATUS    "0x013" // should be 0x801
-#define MCX_TABLE    "0x145" // should be 0x802
+#define MCX_SELECTOR  0x012 // should be 0xBC0
+#define CX_INDEX      0x011 // should be 0x800
+#define CX_STATUS     0x801 // should be 0x801, was using 0x013
+#define MCX_TABLE     0x145 // should be 0xBC1
 
 #define CX_INVALID_SELECTOR 0x10000000
 #define CX_LEGACY 0
@@ -171,6 +171,25 @@ enum {
                  : "r" (rs1), "r" (rs2)                  \
                  :                                       \
     );   }) 
+
+
+#define __ASM_STR(x)	#x
+#define cx_csr_read(csr)				                \
+({								                        \
+	register unsigned long __v;				            \
+	__asm__ __volatile__ ("csrr %0, " __ASM_STR(csr)	\
+			      : "=r" (__v) :			            \
+			      : "memory");			                \
+	__v;							                    \
+})
+
+#define cx_csr_write(csr, val)					        \
+({								                        \
+	unsigned long __v = (unsigned long)(val);		    \
+	__asm__ __volatile__ ("csrw " __ASM_STR(csr) ", %0"	\
+			      : : "rK" (__v)			            \
+			      : "memory");			                \
+})
 
 #define CX_WRITE_STATE(index, value)  ({                   \
     asm volatile("      cx_reg 1020, zero,%0,%1;\n\t"      \

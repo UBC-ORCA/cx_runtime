@@ -12,12 +12,7 @@ void cx_init() {
 }
 
 void cx_sel(int cx_index) {
-   asm volatile (
-    "csrw " CX_INDEX ", %0        \n\t"
-    :
-    : "r" (cx_index)
-    :
-   );
+  cx_csr_write(CX_INDEX, cx_index);
 }
 
 int32_t cx_open(cx_guid_t cx_guid, cx_share_t cx_share) {
@@ -49,20 +44,13 @@ void cx_close(cx_sel_t cx_sel)
 }
 
 cx_error_t cx_error_read() {
-  cx_error_t cx_error = 0xFFFFFFFF;
-  asm volatile (
-    "csrr %0, " CX_STATUS ";     \n\t"
-    : "=r" (cx_error)
-    :
-    :
-  );
+  cx_error_t cx_error = cx_csr_read(CX_STATUS);
   return cx_error;
 }
 
 void cx_error_clear() {
-  asm volatile ("csrw " CX_STATUS ",  0;     \n\t");
+  cx_csr_write(CX_STATUS, 0);
 }
-
 
 void cx_deselect_and_close(cx_sel_t cx_sel)
 {
