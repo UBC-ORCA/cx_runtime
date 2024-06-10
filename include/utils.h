@@ -1,10 +1,10 @@
 #ifndef UTILS_H
 #define UTILS_H
 
-#define MCX_SELECTOR "0x012" // should be 0xBC0
-#define CX_INDEX     "0x011" // should be 0x800
-#define CX_STATUS    "0x013" // should be 0x801
-#define MCX_TABLE    "0x145" // should be 0x802
+#define MCX_SELECTOR  0x012 // should be 0xBC0
+#define CX_INDEX      0x011 // should be 0x800
+#define CX_STATUS     0x801 // should be 0x801, was using 0x013
+#define MCX_TABLE     0x145 // should be 0xBC1
 
 #define CX_INVALID_SELECTOR 0x10000000
 #define CX_LEGACY 0
@@ -73,6 +73,10 @@
 #define CX_CU_START_INDEX 6
 #define CX_CU_BITS 1
 
+/* cx share type */
+#define CX_SHARE_START_INDEX 0
+#define CX_SHARE_BITS 2
+
 // ========= cx helpers ===========
 
 #define GET_BITS(cx_sel, start_bit, n) \
@@ -108,6 +112,11 @@
 
 // ========= cx status helpers ===========
 
+
+
+// ========= cx share type helpers ==========
+#define GET_SHARE_TYPE(cx_share) \
+    GET_BITS(cx_share, CX_SHARE_START_INDEX, CX_SHARE_BITS) 
 
 
 typedef unsigned int uint;
@@ -156,12 +165,34 @@ enum {
     DIRTY
 };       
 
-#define CX_REG_HELPER(cf_id, result, rs1, rs2)      ({   \
+#define CX_REG_HELPER(cf_id, rs1, rs2)      ({           \
+    register unsigned long __v;                          \
     asm volatile("      cx_reg " #cf_id ",%0,%1,%2;\n\t" \
-                 : "=r" (result)                         \
+                 : "=r" (__v)                            \
                  : "r" (rs1), "r" (rs2)                  \
                  :                                       \
-    );   }) 
+    );                                                   \
+	__v;							                     \
+    }) 
+
+
+#define __ASM_STR(x)	#x
+#define cx_csr_read(csr)				                \
+({								                        \
+	register unsigned long __v;				            \
+	__asm__ __volatile__ ("csrr %0, " __ASM_STR(csr)	\
+			      : "=r" (__v) :			            \
+			      : "memory");			                \
+	__v;							                    \
+})
+
+#define cx_csr_write(csr, val)					        \
+({								                        \
+	unsigned long __v = (unsigned long)(val);		    \
+	__asm__ __volatile__ ("csrw " __ASM_STR(csr) ", %0"	\
+			      : : "rK" (__v)			            \
+			      : "memory");			                \
+})
 
 #define CX_WRITE_STATE(index, value)  ({                   \
     asm volatile("      cx_reg 1020, zero,%0,%1;\n\t"      \
@@ -177,14 +208,9 @@ enum {
                  :                                         \
     );   })
 
-#define CX_REG(cf_id, rs1, rs2)                         \
-    int32_t result = -1;                                \
-    CX_REG_HELPER(cf_id, result, rs1, rs2);             \
-    return result
-
-#define CX_READ_STATUS(dest)                CX_REG_HELPER(1023, dest, 0, 0)
+#define CX_READ_STATUS()                CX_REG_HELPER(1023, 0, 0)
 // #define CX_WRITE_STATUS(status)             CX_REG_HELPER(1022, 0, status, 0)
-#define CX_READ_STATE(dest, index)          CX_REG_HELPER(1021, dest, index, 0)
+#define CX_READ_STATE(index)            CX_REG_HELPER(1021, index, 0)
 // #define CX_WRITE_STATE(index, value)        CX_REG_HELPER(1020, 0, index, value)
 
 #endif

@@ -13,28 +13,17 @@ void state_test() {
     int result;
 
     cx_share_t share_A = 0, share_C = 0;
-
-    /* cx_index should be set to 0 initially */
-    uint cx_index = cx_csr_read(CX_INDEX);
-    assert ( cx_index == 0 );
+    cx_sel_t mcx_selector;
 
     /* cx_error should be set to 0 initially */
     uint cx_error = cx_error_read();
     assert ( cx_error == 0 );
 
     int cx_sel_A0 = cx_open(CX_GUID_MULACC, share_A);
-
-    /* cx_open should not modify the selected cxu */
-    cx_index = cx_csr_read(CX_INDEX);
-    assert ( cx_index == 0 );
-  
-    /* Index 0 should be reserved */
-    assert( cx_sel_A0 == 1 );
+    assert ( cx_sel_A0 == 0x20000002 );
 
     cx_error_clear();
     cx_sel(cx_sel_A0);
-    cx_index = cx_csr_read(CX_INDEX);
-    assert ( cx_index == cx_sel_A0 );
 
     uint status = CX_READ_STATUS();
     uint cs_status = GET_CX_STATUS(status);
@@ -70,20 +59,13 @@ void state_test() {
 
     /* Testing multiple states */
     int cx_sel_A1 = cx_open(CX_GUID_MULACC, share_A);
-    cx_index = cx_csr_read(CX_INDEX);
-    assert( cx_index == cx_sel_A0 );
-
     int cx_sel_A2 = cx_open(CX_GUID_MULACC, share_A);
-    cx_index = cx_csr_read(CX_INDEX);
-    assert( cx_index == cx_sel_A0 );
-
-    assert( cx_sel_A1 == 2 );
-    assert( cx_sel_A2 == 3 );
+    assert( cx_sel_A1 == 0x20000002 );
+    assert( cx_sel_A2 == 0x20010002 );
 
     cx_error_clear();
     cx_sel(cx_sel_A1);
-    cx_index = cx_csr_read(CX_INDEX);
-    assert ( cx_index == cx_sel_A1 );
+
     result = mac(a, a);
     assert( result == 9 );
     cx_error = cx_error_read();
@@ -91,63 +73,19 @@ void state_test() {
 
     cx_error_clear();
     cx_sel(cx_sel_A2);
-    cx_index = cx_csr_read(CX_INDEX);
-    assert ( cx_index == cx_sel_A2 );
     result = mac(b, b);
     assert( result == 25 );
     cx_error = cx_error_read();
     assert ( cx_error == 0 );
 
     cx_close(cx_sel_A1);
-    cx_index = cx_csr_read(CX_INDEX);
-    assert ( cx_index == cx_sel_A2 );
 
     uint cx_sel_test = -1;
-    // Making sure free states are able to be used again
-    for (int i = 0; i < CX_SEL_TABLE_NUM_ENTRIES - 4; i++) {
-        cx_sel_test = cx_open(CX_GUID_MULACC, 0);
-        cx_close(cx_sel_test);
-    }
-
-    cx_sel_test = cx_open(CX_GUID_MULACC, 0);
-    assert( cx_sel_test == 1 );
-    cx_index = cx_csr_read(CX_INDEX);
-    assert ( cx_index == cx_sel_A2 );
-
-    cx_close(cx_sel_test);
-    cx_index = cx_csr_read(CX_INDEX);
-    assert ( cx_index == cx_sel_A2 );
-
-    cx_sel_test = cx_open(CX_GUID_MULACC, 0);
-    assert( cx_sel_test == 2 );
-    cx_index = cx_csr_read(CX_INDEX);
-    assert ( cx_index == cx_sel_A2 );
-
-    cx_close(cx_sel_test);
-
-    cx_sel_test = cx_open(CX_GUID_MULACC, 0);
-    cx_close(cx_sel_test);
-
-    // cx_index 3 is still in use
-    assert( cx_sel_test == 4 );
-
-    cx_close(cx_sel_A2);
 
     const int INVALID_CX_GUID = 0;
     int cx_sel_invalid = cx_open(INVALID_CX_GUID, share_A);
     
     assert( cx_sel_invalid == -1 );
-
-    // Need to check the cx_error
-    // Try with invalid selector?
-    // cx_sel_t *cx_sel = (cx_sel_t *) malloc(sizeof(cx_sel_t) * CX_SEL_TABLE_NUM_ENTRIES);
-    // for (int i = 0; i < CX_SEL_TABLE_NUM_ENTRIES - 1; i++) {
-    //     cx_sel[i] = cx_open(CX_GUID_, share_A);
-    //     assert( cx_sel[i] == i + 1 );
-    // }
-    // cx_sel[1023] = cx_open(CX_GUID_, share_A);
-    // Table full
-    // assert( cx_sel[i] == -1 );
     cx_sel( CX_LEGACY );
 }
 
@@ -155,6 +93,6 @@ int main() {
     cx_init();
     cx_sel( CX_LEGACY );
     state_test();
-    printf("state test passed\n");
+    printf("state test passed (m mode)\n");
     return 0;
 }

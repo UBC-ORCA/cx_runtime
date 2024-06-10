@@ -81,12 +81,7 @@ void cx_init() {
 }
 
 void cx_sel(int cx_sel) {
-   asm volatile (
-    "csrw " MCX_SELECTOR ", %0        \n\t" // TODO: Should be 800
-    :
-    : "r" (cx_sel)
-    :
-   );
+   cx_csr_write(MCX_SELECTOR, cx_sel);
 }
 
 int32_t cx_open(cx_guid_t cx_guid, cx_share_t cx_share) {
@@ -104,15 +99,8 @@ int32_t cx_open(cx_guid_t cx_guid, cx_share_t cx_share) {
         return gen_cx_sel(cx_id, 0, MCX_VERSION);
     } else {
 
-        cx_sel_t prev_sel = -1;
-
         // Store the previous value in the cx_index csr
-        asm volatile (
-            "csrr %0, " MCX_SELECTOR "        \n\t"
-            : "=r" (prev_sel)
-            :
-            :
-        );
+        cx_sel_t prev_sel = cx_csr_read(MCX_SELECTOR);
 
         state_id_t state_id = get_free_state(cx_id);
         
@@ -120,13 +108,12 @@ int32_t cx_open(cx_guid_t cx_guid, cx_share_t cx_share) {
             return -1;
         }
 
-        cx_sel_t cx_sel = gen_cx_sel(cx_id, state_id, MCX_VERSION);
+        cx_sel_t cx_sel_ = gen_cx_sel(cx_id, state_id, MCX_VERSION);
         // TODO: Check if the cx_selector is valid / non-zero
+        cx_sel(cx_sel_);
 
-        uint status = 0xFFFFFFFF;
-        CX_READ_STATUS(status);
-        uint state_size = 1025;
-        state_size = GET_CX_STATE_SIZE(status);
+        uint status = CX_READ_STATUS();
+        uint state_size = GET_CX_STATE_SIZE(status);
 
         if (state_size > 1023 || state_size < 0) {
             return -1;
@@ -145,13 +132,8 @@ int32_t cx_open(cx_guid_t cx_guid, cx_share_t cx_share) {
             CX_WRITE_STATUS(DIRTY);
         }
 
-        asm volatile (
-            "csrr %0, " MCX_SELECTOR "        \n\t"
-            :
-            : "r" (prev_sel)
-            :
-        );
-        return cx_sel;
+        cx_sel(prev_sel);
+        return cx_sel_;
     }
 }
 
@@ -169,13 +151,10 @@ void cx_close(cx_sel_t cx_sel)
   }
 }
 
-uint cx_error() {
-  int cx_error = -1;
-  asm volatile (
-    "csrr %0, " CX_STATUS ";     \n\t"
-    : "=r" (cx_error)
-    :
-    :
-  );
-  return cx_error;
+cx_error_t cx_error_read() {
+  return cx_csr_read(CX_STATUS);
+}
+
+void cx_error_clear() {
+  cx_csr_write(CX_STATUS, 0);
 }
