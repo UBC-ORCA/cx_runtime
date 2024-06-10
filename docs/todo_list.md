@@ -1,18 +1,18 @@
 # Short Term Objectives
 
-:white_check_mark: Fix stateless cxs
-
-:x: Add tests, making sure that the correct state off / init / dirty / clean values are set correctly
+:x: Move static part of cx_map in a device struct, similar to a PCIe device
 
 :x: Trap on first use of cx_{imm, reg, flex} for virtualization of threads, allowing state sharing via loading / storing to / from memory
 
-:white_check_mark: Fix m mode cx_{open, close, sel}, so that it works the same as u mode
+:x: Fix builds
 
-:x: Create CX_STATUS CSR to keep track of errors (%2.2.2)
+:x: Raise mtval CSR when we have an invalid cx_selector
+
+:x: Support saving cxu state data thread-specific instead of process-specific
+
+:x: *(Partially completed) Create CX_STATUS CSR to keep track of errors (%2.2.2) 
 
 :x: Document the functionality of cx_{open, close, sel}
-
-:x: Fix builds
 
 :x: Modify QEMU so that the proper CSR addresses can be used
 
@@ -30,6 +30,18 @@
     should it be a part of `cx_close();`?
 
 # Completed objectives
+
+:white_check_mark: Have tests for m_mode ci.h (ci_m.h)
+
+:white_check_mark: Add tests, making sure that the correct state off / init / dirty / clean values are set correctly
+
+:white_check_mark: Be able to save + load contexts
+
+:white_check_mark: CX_Error is used in examples as a fence instruction before issuing another cx_sel instruction
+
+:white_check_mark: Fix m mode cx_{open, close, sel}, so that it works the same as u mode
+
+:white_check_mark: Fix stateless cxs
 
 :white_check_mark: Move structs in cfu_helper to be initialized elsewhere + add padding
 

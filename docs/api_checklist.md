@@ -30,11 +30,13 @@
 
 :white_check_mark: Linux changes in S-mode to manipulate scx_table, ensuring contents of table are fully protected from manipulation by the U-mode application (ie, the page is not writable, mapped as read-only in the memory space of the application)
 
+:white_check_mark: ability to save and restore states, either by virtualization of states or by context switching
+
 :x: application fallback/recovery from errors such as missing CXU, illegal CXU instructions, etc
 
 :x: supports virtualization of states
 
-:x: ability to save and restore states, either by virtualization of states or by context switching
+:x: supports context switching
 
 # Future Work
 
