@@ -80,7 +80,7 @@
 // ========= cx helpers ===========
 
 #define GET_BITS(cx_sel, start_bit, n) \
-    (cx_sel >> start_bit) & (((1 << n) - 1) )
+    ((cx_sel >> start_bit) & (((1 << n) - 1) ))
 
 // ========= cx selector helpers ===========
 
