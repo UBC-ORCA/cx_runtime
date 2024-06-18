@@ -20,11 +20,12 @@ typedef int cx_id_t;
 typedef int cx_sel_t;
 typedef int state_id_t;
 
-static inline cx_sel_t gen_cx_sel(cx_id_t cx_id, state_id_t state_id, 
+static inline cx_sel_t gen_cx_sel(cx_id_t cx_id, state_id_t state_id, uint cxe,
                                   int32_t cx_version) 
 {
     cx_selidx_t cx_sel = {.sel = {.cx_id = cx_id, 
                                   .state_id = state_id,
+                                  .cxe = cxe,
                                   .version = cx_version}};
     return cx_sel.idx;
 }
@@ -94,6 +95,7 @@ static int initialize_state(uint status)
         uint sw_init = GET_CX_INITIALIZER(status);
 
         CX_WRITE_STATUS(INITIAL);
+        // pr_info("status after writing: %08x\n", CX_READ_STATUS());
 
         // hw required to set to dirty after init, while sw does it explicitly
         if (sw_init) {
@@ -150,18 +152,22 @@ static int initialize_state(uint status)
 //     return true;
 // }
 
-static void copy_state_to_os( uint cx_index, cx_os_state_t dest ) 
+static void copy_state_to_os( uint state_size, uint index ) 
 { 
-        for (int i = 0; i < dest.size; i++) {
-                dest.data[i] = CX_READ_STATE(i);
+        for (int i = 0; i < state_size; i++) {
+                current->cx_os_state_table[index].data[i] = CX_READ_STATE(i);
         }
 }
 
-static void copy_state_from_os( cx_os_state_t src, int cx_index ) 
+static void copy_state_from_os( uint index ) 
 {
+        // pr_info("src size: %d\n", src.size);
+        // pr_info("src data: %d\n", src.data[0]);
+        cx_os_state_t src = current->cx_os_state_table[index];
         for (int i = 0; i < src.size; i++) {
                 CX_WRITE_STATE(i, src.data[i]);
         }
+        // pr_info("finished copy!\n");
 }
 
 /*
@@ -170,13 +176,12 @@ static void copy_state_from_os( cx_os_state_t src, int cx_index )
 */
 SYSCALL_DEFINE0(cx_init)
 {
-        current->mcx_table = kzalloc(sizeof(int) * CX_SEL_TABLE_NUM_ENTRIES, GFP_KERNEL);
+        // current->mcx_table = kzalloc(sizeof(int) * CX_SEL_TABLE_NUM_ENTRIES, GFP_KERNEL);
         if (!current->mcx_table) {
                 // some sort of allocation error here
                 return -1;
         }
-
-        current->cx_os_state_table = kzalloc(sizeof(cx_os_state_t) * CX_SEL_TABLE_NUM_ENTRIES, GFP_KERNEL);
+        // current->cx_os_state_table = (cx_os_state_t *)kzalloc(sizeof(cx_os_state_t) * CX_SEL_TABLE_NUM_ENTRIES, GFP_KERNEL);
         if (!current->cx_os_state_table) {
                 // some sort of allocation error here
                 return -1;
@@ -214,23 +219,27 @@ SYSCALL_DEFINE0(cx_init)
         current->cx_map[2].num_states = CX_MULACC_NUM_STATES;
         
         int32_t num_states = -1;
+        pr_info("here\n");
+
         for (int i = 0; i < NUM_CX; i++) {
 
                 num_states = current->cx_map[i].num_states;
 
                 // stateless cxu
                 if (num_states == 0) {
-                        current->cx_map[i].index = kzalloc(sizeof(int) * 1, GFP_KERNEL);
+                        // current->cx_map[i].index = kzalloc(sizeof(int) * 1, GFP_KERNEL);
+                        // pr_info("here\n");
                         current->cx_map[i].index[0] = -1;
                 }
-                
                 // stateful cxu
                 else {
+                        // current->cx_map[i].index = kzalloc(sizeof(int) * 1, GFP_KERNEL);
                         current->cx_map[i].avail_state_ids = make_queue(num_states);
                 }
 
                 current->cx_map[i].counter = 0;
         }
+
         return 0;
 }
 
@@ -262,6 +271,10 @@ SYSCALL_DEFINE2(cx_open, int, cx_guid, int, cx_share)
                 return -1;
         }
 
+        if (cx_share < 0 || cx_share > GLOBAL_SHARED) {
+                return -1;
+        }
+
         // if (!is_valid_counter(cx_id)) {
         //         return -1;
         // }
@@ -277,29 +290,50 @@ SYSCALL_DEFINE2(cx_open, int, cx_guid, int, cx_share)
                 current->cx_map[cx_id].index[0] = cx_index;
 
                 dequeue(current->cx_table_avail_indices);
-                cx_sel = gen_cx_sel(cx_id, 0, CX_VERSION);
+                cx_sel = gen_cx_sel(cx_id, 0, 0, CX_VERSION);
                 current->mcx_table[cx_index] = cx_sel;
         
         // stateful cx
         } else {
+                int state_id = -1;
+                if (cx_share == PROCESS_SHARED) {
+                        // When we get PCIe device struct as a cx_map, this will be a lot more efficent
+                        for (int i = 0; i < CX_SEL_TABLE_NUM_ENTRIES; i++) {
+                                if (current->mcx_table[i] == CX_INVALID_SELECTOR) {
+                                        continue;
+                                }
 
-                int state_id = get_free_state(cx_id);
-                // pr_info("cx_id: %d, state_id: %d\n", cx_id, state_id);
-                if (state_id < 0) {
-                        return -1;
-                }
-                
-                if (!is_valid_state_id(cx_id, state_id)) {
-                        // TODO: errno
-                        // errno = 139;
-                        return -1; // No available states for cx_guid 
-                }
+                                // If there is already a state id for this cx_id that enables
+                                // sharing
+                                cx_selidx_t curr_selidx = { .idx = current->mcx_table[i] };
+                                if ( curr_selidx.sel.cx_id == cx_id && 
+                                     current->cx_os_state_table[i].share == PROCESS_SHARED ) {
+                                        state_id = curr_selidx.sel.state_id;
+                                }
+                        }
+                } 
+                if (state_id == -1) {
 
-                dequeue(current->cx_map[cx_id].avail_state_ids);
+                        state_id = get_free_state(cx_id);
+                        // pr_info("cx_id: %d, state_id: %d\n", cx_id, state_id);
+                        if (state_id < 0) {
+                                pr_info("state id error\n");
+                                return -1;
+                        }
+                        
+                        if (!is_valid_state_id(cx_id, state_id)) {
+                                // TODO: errno
+                                // errno = 139;
+                                pr_info("invalid state\n");
+                                return -1; // No available states for cx_guid 
+                        }
+
+                        dequeue(current->cx_map[cx_id].avail_state_ids);
+                }
                 dequeue(current->cx_table_avail_indices);
                 current->cx_map[cx_id].counter++;
-
-                cx_sel = gen_cx_sel(cx_id, state_id, CX_VERSION);
+                
+                cx_sel = gen_cx_sel(cx_id, state_id, 1, CX_VERSION);
                 current->mcx_table[cx_index] = cx_sel;
 
                 // 2. Store the previous value in the cx_index csr
@@ -309,25 +343,37 @@ SYSCALL_DEFINE2(cx_open, int, cx_guid, int, cx_share)
                 if (prev_sel_index > 1023 || prev_sel_index < 0) {
                         return -1;
                 }
-
+                
                 // 3. Update cx_index to the new value
                 cx_csr_write(CX_INDEX, cx_index);
 
+                // TODO: REMOVING THIS PRODUCES A MEMORY LEAK. I DON'T KNOW HOW.
+                //       Likely something to do with QEMU. 
+                uint init_status = CX_READ_STATUS();
+                // pr_info("init_status: %08x\n", init_status);
+
                 // 4 + 5
-                uint status = CX_READ_STATUS();
-                int failure = initialize_state(status);
+                uint status_ = (uint)CX_READ_STATUS();
+                pr_info("status: %08x\n", status_);
+                int failure = initialize_state(status_);
                 if (failure) {
+                        pr_info("there was a failure all along!\n");
                         return -1;
                 }
 
                 // 6. Allocate memory in the OS for the state
-                current->cx_os_state_table[cx_index].data = kzalloc(MAX_STATE_SIZE, GFP_KERNEL);
-                current->cx_os_state_table[cx_index].share = GET_SHARE_TYPE(cx_share);
-                current->cx_os_state_table[cx_index].size = GET_CX_STATE_SIZE(status);
+                // current->cx_os_state_table[cx_index].data = kzalloc(MAX_STATE_SIZE, GFP_KERNEL);
+                current->cx_os_state_table[cx_index].share = (uint)GET_SHARE_TYPE(cx_share);
+                current->cx_os_state_table[cx_index].size =  1;// GET_CX_STATE_SIZE(status_);
+                // uint cx_index_ = csr_read(CX_INDEX);
+                // uint cx_status_ = CX_READ_STATUS();
+                // pr_info("End of syscall cx_index: %d, status: %d\n", cx_index_, cx_status_);
 
                 // 7. Write the previous selector value back to cx_index
                 cx_csr_write(CX_INDEX, prev_sel_index);
         }
+        // pr_info("after open!: %08x, %08x, %08x\n", current->mcx_table[1], current->mcx_table[2], current->mcx_table[3]);
+
         return cx_index;
 }
 
@@ -351,7 +397,7 @@ SYSCALL_DEFINE1(cx_close, int, cx_sel)
         }
 
         // TODO: see if we can remove this cast
-        cx_id_t cx_id = ((cx_selidx_t) cx_sel_entry).sel.cx_id;
+        cx_id_t cx_id = ((cx_selidx_t) ((uint)cx_sel_entry)).sel.cx_id;
 
         if (!is_valid_cx_id(cx_id)) {
                 return -1;
@@ -366,7 +412,7 @@ SYSCALL_DEFINE1(cx_close, int, cx_sel)
         #endif
         // Stateful cx's
         if (current->cx_map[cx_id].num_states > 0) {
-                state_id_t state_id = ((cx_selidx_t) cx_sel).sel.state_id;
+                state_id_t state_id = ((cx_selidx_t) ((uint)cx_sel_entry)).sel.state_id;
                 if (!is_valid_state_id(cx_id, state_id)) {
                         // errno = 139;
                         return -1;
@@ -409,6 +455,7 @@ SYSCALL_DEFINE1(cx_close, int, cx_sel)
                         current->cx_map[cx_id].index[0] = -1;
                 }
         } else {
+                pr_info("made it to case that shouldn't happen\n");
                 return -1; // Shouldn't make it to this case
         }
         return 0;
@@ -422,31 +469,36 @@ SYSCALL_DEFINE0(context_save)
         current->cx_index = cx_sel_index;
 
         for (int i = 1; i < CX_SEL_TABLE_NUM_ENTRIES; i++) {
-                
+        
                 // save the state data
                 if (current->mcx_table[i] != CX_INVALID_SELECTOR) {
-                        
+
                         // write the index to be saved
                         cx_csr_write(CX_INDEX, i);
                         
                         uint cx_status = CX_READ_STATUS();
 
-                        // Don't need to save data if it's dirty
+                        // Don't need to save data if it's not dirty
                         if (GET_CX_STATUS(cx_status) != DIRTY) {
                                 continue;
                         }
-
+                        uint state_size = GET_CX_STATE_SIZE(cx_status);
                         // copy state data to OS
-                        copy_state_to_os(i, current->cx_os_state_table[i]);
+                        copy_state_to_os(state_size, i);
+                        pr_info("state_data: %d\n", current->cx_os_state_table[i].data[0]);
 
                         // set the state context back to its initial state
                         int failure = initialize_state(cx_status);
+
                         if (failure) {
                                 return -1;
                         }
 
                         // save the state context status
                         current->cx_os_state_table[i].ctx_status = cx_status;
+
+                        // save the new size
+                        current->cx_os_state_table[i].size = 1;
                 }
         }
 
@@ -461,7 +513,6 @@ SYSCALL_DEFINE0(context_save)
 
 SYSCALL_DEFINE0(context_restore)
 {
-
         // 1. Restore error
         cx_csr_write(CX_STATUS, current->cx_status);
         
@@ -471,26 +522,130 @@ SYSCALL_DEFINE0(context_restore)
         // 3. Restore state information
         for (int i = 1; i < CX_SEL_TABLE_NUM_ENTRIES; i++) {
                 
-                cx_stctxs_t cx_stctxs = {{current->cx_os_state_table[i].ctx_status}};
+                cx_stctxs_t cx_stctxs = {.idx = current->cx_os_state_table[i].ctx_status};
 
                 // ignore table indicies that aren't occupied, and only save dirty states
                 if (current->mcx_table[i] != CX_INVALID_SELECTOR) {
-                        
+
                         // Write the index to be restored
                         cx_csr_write(CX_INDEX, i);
                         
                         // Restore state
-                        copy_state_from_os( current->cx_os_state_table[i], i );
-                        
+                        copy_state_from_os( i );
+
                         // Restoring status word + setting to clean
                         cx_stctxs.sel.cs = CLEAN;
                         current->cx_os_state_table[i].ctx_status = cx_stctxs.idx;
                         CX_WRITE_STATUS(cx_stctxs.idx);
+                        // pr_info("restored state %d\n", i);  
                 }
         }
 
         // 4. Restore index
         cx_csr_write(CX_INDEX, current->cx_index);
+        // pr_info("restored index %d\n", current->cx_index);  
 
         return 0;
+}
+
+SYSCALL_DEFINE2(do_nothing, int, a0, int, a1)
+{       
+        // pr_info("do_trap\n");
+        // uint temp = cx_csr_read(MCX_SELECTOR);
+        // if (GET_CX_CXE(temp) == 0) {
+        //         return 0;
+        // }
+
+        // Save the current state index
+        uint prev_cx_index = cx_csr_read(CX_INDEX);
+        // pr_info("index: %d, mcx_sel[1]: %08x, mcx_sel[2]: %08x\n", prev_cx_index, current->mcx_table[1], current->mcx_table[2]);
+
+        // Update the mcx_table to clear cxe bit for current selector
+        // This needs to be early in the case that we double trap, which we will when we do as soon
+        // as we execute the following CX_READ_STATUS.
+        uint cx_sel = current->mcx_table[prev_cx_index];
+        cx_sel &= ~(1 << (CX_CXE_START_INDEX));
+        current->mcx_table[prev_cx_index] = cx_sel;
+
+        // pr_info("do we actually finish this? %08x\n", current->mcx_table[prev_cx_index]);
+        // pr_info("mcx_sel[0]: %08x, mcx_sel[1]: %08x\n", current->mcx_table[1], current->mcx_table[2]);
+        cx_csr_write(MCX_SELECTOR, cx_sel);
+
+        // uint temp_status = CX_READ_STATUS();
+        cx_stctxs_t prev_cx_stctxs = {.idx = CX_READ_STATUS()};
+        uint prev_cx_cs = GET_CX_STATUS(prev_cx_stctxs.idx);
+        // pr_info("prev_status (i = %d): %08x, %08x\n", prev_cx_index, CX_READ_STATUS(), prev_cx_stctxs.idx);
+
+
+        cx_selidx_t prev_cx_selidx = {.idx = current->mcx_table[prev_cx_index]};
+
+        // if (prev_cx_cs == CLEAN || prev_cx_cs == OFF) {
+        //         return 0;
+        // }
+
+        for (int i = 1; i < CX_SEL_TABLE_NUM_ENTRIES; i++) {
+                
+                if (current->mcx_table[i] == CX_INVALID_SELECTOR) {
+                        continue;
+                }
+                // Because we've already updated the mcx_table, don't restore
+                // the state info of the current state.
+                if (i == prev_cx_index) {
+                        continue;
+                }
+                cx_selidx_t cx_selidx = {.idx = current->mcx_table[i]};
+                // pr_info("prev_sel (i = %d): %08x, new_sel (i = %d): %08x\n", prev_cx_index, current->mcx_table[prev_cx_index], i, current->mcx_table[i]);
+
+
+                // Virtualize same state / cx_id only
+                if (!(cx_selidx.sel.cx_id == prev_cx_selidx.sel.cx_id && 
+                    cx_selidx.sel.state_id == prev_cx_selidx.sel.state_id)) {
+                        continue;
+                }
+
+                // Don't need to save and restore stateless cxs
+                // pr_info("cx_id: %d\n", GET_CX_ID(current->mcx_table[i]));
+                if (current->cx_map[GET_CX_ID(current->mcx_table[i])].num_states == 0) {
+                        continue;
+                }
+
+                uint cxe = GET_CX_CXE(current->mcx_table[i]);
+                // pr_info("trapping!: i: %d, prev_cx_sel_index: %d, %08x\n", i, prev_cx_index, current->mcx_table[i]);
+                if (!cxe) {
+                           
+                        pr_info("in the trap!\n");
+
+                        // Write the index to be saved
+                        cx_csr_write(CX_INDEX, i);
+
+                        // Storing status word + setting to clean
+                        prev_cx_stctxs.sel.cs = CLEAN;
+                        current->cx_os_state_table[i].ctx_status = prev_cx_stctxs.idx;
+
+                        // Update the mcx_table to set cxe bit from prev selector
+                        uint prev_cx_sel = current->mcx_table[i];
+                        prev_cx_sel |= (1 << (CX_CXE_START_INDEX));
+                        current->mcx_table[i] = prev_cx_sel;
+
+                        // Storing state
+                        copy_state_to_os( prev_cx_stctxs.sel.state_size, i );
+
+                        // Restore current correct state index
+                        cx_csr_write(CX_INDEX, prev_cx_index);
+
+                        // Restore state information
+                        copy_state_from_os( prev_cx_index );
+
+                        // Update state context status information
+                        CX_WRITE_STATUS( current->cx_os_state_table[prev_cx_index].ctx_status );
+                        break;
+                }
+        }
+        // pr_info("after trap!: %08x, %08x, %08x\n", current->mcx_table[1], current->mcx_table[2], current->mcx_table[3]);
+        for (int j = 1; j <= NUM_CX; j++) {
+                pr_info("cx_sel %d state data[0]: %d\n", j, current->cx_os_state_table[j].data[0]);
+        }       
+        int val = CX_REG_HELPER(0, a0, a1);
+        pr_info("val: %d\n", val);
+        return val;
 }

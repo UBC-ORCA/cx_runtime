@@ -1,0 +1,329 @@
+diff --git a/Kbuild b/Kbuild
+index 464b34a08f51..64a2bfedd213 100644
+--- a/Kbuild
++++ b/Kbuild
+@@ -97,3 +97,5 @@ obj-$(CONFIG_SAMPLES)	+= samples/
+ obj-$(CONFIG_NET)	+= net/
+ obj-y			+= virt/
+ obj-y			+= $(ARCH_DRIVERS)
++obj-y           += cx_sys/
++
+diff --git a/arch/riscv/configs/rv32_defconfig b/arch/riscv/configs/rv32_defconfig
+index 89b601e253a6..2e7520c70c29 100644
+--- a/arch/riscv/configs/rv32_defconfig
++++ b/arch/riscv/configs/rv32_defconfig
+@@ -1,3 +1,4 @@
++CONFIG_DEBUG_INFO=y
+ CONFIG_SYSVIPC=y
+ CONFIG_POSIX_MQUEUE=y
+ CONFIG_NO_HZ_IDLE=y
+diff --git a/arch/riscv/include/asm/asm-prototypes.h b/arch/riscv/include/asm/asm-prototypes.h
+index 36b955c762ba..637cd642e6cc 100644
+--- a/arch/riscv/include/asm/asm-prototypes.h
++++ b/arch/riscv/include/asm/asm-prototypes.h
+@@ -24,6 +24,7 @@ DECLARE_DO_ERROR_INFO(do_trap_ecall_u);
+ DECLARE_DO_ERROR_INFO(do_trap_ecall_s);
+ DECLARE_DO_ERROR_INFO(do_trap_ecall_m);
+ DECLARE_DO_ERROR_INFO(do_trap_break);
++DECLARE_DO_ERROR_INFO(do_trap_first_cx_use);
+ 
+ asmlinkage void handle_bad_stack(struct pt_regs *regs);
+ asmlinkage void do_page_fault(struct pt_regs *regs);
+diff --git a/arch/riscv/include/asm/csr.h b/arch/riscv/include/asm/csr.h
+index 306a19a5509c..f488aec4c3f3 100644
+--- a/arch/riscv/include/asm/csr.h
++++ b/arch/riscv/include/asm/csr.h
+@@ -106,6 +106,7 @@
+ #define EXC_LOAD_GUEST_PAGE_FAULT	21
+ #define EXC_VIRTUAL_INST_FAULT		22
+ #define EXC_STORE_GUEST_PAGE_FAULT	23
++#define EXC_FIRST_CX_USE     14
+ 
+ /* PMP configuration */
+ #define PMP_R			0x01
+diff --git a/arch/riscv/kernel/entry.S b/arch/riscv/kernel/entry.S
+index 54ca4564a926..f9a45a695d66 100644
+--- a/arch/riscv/kernel/entry.S
++++ b/arch/riscv/kernel/entry.S
+@@ -338,7 +338,7 @@ SYM_DATA_START_LOCAL(excp_vect_table)
+ 	/* instruciton page fault */
+ 	ALT_PAGE_FAULT(RISCV_PTR do_page_fault)
+ 	RISCV_PTR do_page_fault   /* load page fault */
+-	RISCV_PTR do_trap_unknown
++	RISCV_PTR do_trap_first_cx_use
+ 	RISCV_PTR do_page_fault   /* store page fault */
+ SYM_DATA_END_LABEL(excp_vect_table, SYM_L_LOCAL, excp_vect_table_end)
+ 
+diff --git a/arch/riscv/kernel/signal.c b/arch/riscv/kernel/signal.c
+index 88b6220b2608..c58b3a884cb6 100644
+--- a/arch/riscv/kernel/signal.c
++++ b/arch/riscv/kernel/signal.c
+@@ -403,7 +403,7 @@ void arch_do_signal_or_restart(struct pt_regs *regs)
+ 	bool syscall = (regs->cause == EXC_SYSCALL);
+ 
+ 	/* If we were from a system call, check for system call restarting */
+-	if (syscall) {
++	if (syscall) { 
+ 		continue_addr = regs->epc;
+ 		restart_addr = continue_addr - 4;
+ 		retval = regs->a0;
+diff --git a/arch/riscv/kernel/traps.c b/arch/riscv/kernel/traps.c
+index a1b9be3c4332..e49dcb205dee 100644
+--- a/arch/riscv/kernel/traps.c
++++ b/arch/riscv/kernel/traps.c
+@@ -113,7 +113,6 @@ void die(struct pt_regs *regs, const char *str)
+ void do_trap(struct pt_regs *regs, int signo, int code, unsigned long addr)
+ {
+ 	struct task_struct *tsk = current;
+-
+ 	if (show_unhandled_signals && unhandled_signal(tsk, signo)
+ 	    && printk_ratelimit()) {
+ 		pr_info("%s[%d]: unhandled signal %d code 0x%x at 0x" REG_FMT,
+@@ -169,6 +168,15 @@ DO_ERROR_INFO(do_trap_insn_fault,
+ asmlinkage __visible __trap_section void do_trap_insn_illegal(struct pt_regs *regs)
+ {
+ 	bool handled;
++	unsigned cx_reg_mask = (1 << 7) - 1;
++	u32 insn = (u32)regs->badaddr;
++	// pr_info("illegal inst: %08x\n", insn);
++	
++	if ((insn & cx_reg_mask) == 0xb) {
++		do_trap_first_cx_use(regs);
++		return;
++	}
++
+ 
+ 	if (user_mode(regs)) {
+ 		irqentry_enter_from_user_mode(regs);
+@@ -176,6 +184,8 @@ asmlinkage __visible __trap_section void do_trap_insn_illegal(struct pt_regs *re
+ 		local_irq_enable();
+ 
+ 		handled = riscv_v_first_use_handler(regs);
++		pr_info("in the exception handler thingy\n");
++
+ 
+ 		local_irq_disable();
+ 
+@@ -312,6 +322,11 @@ asmlinkage __visible __trap_section void do_trap_break(struct pt_regs *regs)
+ 
+ asmlinkage __visible __trap_section void do_trap_ecall_u(struct pt_regs *regs)
+ {
++	long _syscall = regs->a7;
++	
++	// if (_syscall >= 460) {
++	// 	pr_info("ecall cause: %lu, status: %08lx, syscall: %ld\n", regs->cause, regs->status, _syscall);
++	// }
+ 	if (user_mode(regs)) {
+ 		long syscall = regs->a7;
+ 
+@@ -327,6 +342,10 @@ asmlinkage __visible __trap_section void do_trap_ecall_u(struct pt_regs *regs)
+ 		else if (syscall != -1)
+ 			regs->a0 = -ENOSYS;
+ 
++		if (syscall >= 457) {
++			pr_info("regs->a0 after syscall: %ld\n", regs->a0);
++		}
++
+ 		syscall_exit_to_user_mode(regs);
+ 	} else {
+ 		irqentry_state_t state = irqentry_nmi_enter(regs);
+@@ -339,6 +358,29 @@ asmlinkage __visible __trap_section void do_trap_ecall_u(struct pt_regs *regs)
+ 
+ }
+ 
++/* TODO (cx, Brandon): This is incredibly hacky - Used for virtualization of state. */
++asmlinkage __visible __trap_section void do_trap_first_cx_use(struct pt_regs *regs)
++{
++	long syscall = 462;
++	// pr_info("cx trap! cause: %lu, status: %08lx, syscall: %ld\n", regs->cause, regs->status, syscall);
++	// pr_info("reg values: %ld, %ld, %ld\n", regs->a0, regs->a1, regs->a2);
++
++	regs->epc += 4;
++	regs->orig_a0 = regs->a0;
++
++	riscv_v_vstate_discard(regs);
++
++	if (syscall >= 0 && syscall < NR_syscalls) {
++		syscall_handler(regs, syscall);
++		regs->orig_a0 = regs->a0;
++		pr_info("regs->a0: %ld\n", regs->a0);
++	}
++	else if (syscall != -1)
++		regs->a0 = -ENOSYS;
++
++	syscall_exit_to_user_mode(regs);
++}
++
+ #ifdef CONFIG_MMU
+ asmlinkage __visible noinstr void do_page_fault(struct pt_regs *regs)
+ {
+diff --git a/arch/riscv/kvm/main.c b/arch/riscv/kvm/main.c
+index 225a435d9c9a..3838411b171a 100644
+--- a/arch/riscv/kvm/main.c
++++ b/arch/riscv/kvm/main.c
+@@ -23,12 +23,12 @@ long kvm_arch_dev_ioctl(struct file *filp,
+ int kvm_arch_hardware_enable(void)
+ {
+ 	unsigned long hideleg, hedeleg;
+-
+ 	hedeleg = 0;
+ 	hedeleg |= (1UL << EXC_INST_MISALIGNED);
+ 	hedeleg |= (1UL << EXC_BREAKPOINT);
+ 	hedeleg |= (1UL << EXC_SYSCALL);
+ 	hedeleg |= (1UL << EXC_INST_PAGE_FAULT);
++	hedeleg |= (1UL << EXC_FIRST_CX_USE);
+ 	hedeleg |= (1UL << EXC_LOAD_PAGE_FAULT);
+ 	hedeleg |= (1UL << EXC_STORE_PAGE_FAULT);
+ 	csr_write(CSR_HEDELEG, hedeleg);
+diff --git a/arch/riscv/kvm/vcpu_exit.c b/arch/riscv/kvm/vcpu_exit.c
+index 2415722c01b8..393f819b8832 100644
+--- a/arch/riscv/kvm/vcpu_exit.c
++++ b/arch/riscv/kvm/vcpu_exit.c
+@@ -173,7 +173,6 @@ int kvm_riscv_vcpu_exit(struct kvm_vcpu *vcpu, struct kvm_run *run,
+ 			struct kvm_cpu_trap *trap)
+ {
+ 	int ret;
+-
+ 	/* If we got host interrupt then do nothing */
+ 	if (trap->scause & CAUSE_IRQ_FLAG)
+ 		return 1;
+diff --git a/arch/riscv/kvm/vcpu_insn.c b/arch/riscv/kvm/vcpu_insn.c
+index 7a6abed41bc1..dd33f2952679 100644
+--- a/arch/riscv/kvm/vcpu_insn.c
++++ b/arch/riscv/kvm/vcpu_insn.c
+@@ -152,7 +152,6 @@ static int truly_illegal_insn(struct kvm_vcpu *vcpu, struct kvm_run *run,
+ 			      ulong insn)
+ {
+ 	struct kvm_cpu_trap utrap = { 0 };
+-
+ 	/* Redirect trap to Guest VCPU */
+ 	utrap.sepc = vcpu->arch.guest_context.sepc;
+ 	utrap.scause = EXC_INST_ILLEGAL;
+@@ -168,7 +167,6 @@ static int truly_virtual_insn(struct kvm_vcpu *vcpu, struct kvm_run *run,
+ 			      ulong insn)
+ {
+ 	struct kvm_cpu_trap utrap = { 0 };
+-
+ 	/* Redirect trap to Guest VCPU */
+ 	utrap.sepc = vcpu->arch.guest_context.sepc;
+ 	utrap.scause = EXC_VIRTUAL_INST_FAULT;
+diff --git a/include/linux/sched.h b/include/linux/sched.h
+index 292c31697248..17b0e6449d1f 100644
+--- a/include/linux/sched.h
++++ b/include/linux/sched.h
+@@ -39,6 +39,8 @@
+ #include <linux/livepatch_sched.h>
+ #include <asm/kmap_size.h>
+ 
++#include <linux/queue.h>
++
+ /* task_struct member predeclarations (sorted alphabetically): */
+ struct audit_context;
+ struct bio_list;
+@@ -743,6 +745,34 @@ struct kmap_ctrl {
+ #endif
+ };
+ 
++#define NUM_CX 3
++
++typedef uint cx_stare_t;
++
++typedef struct {
++  cx_stare_t share;
++  uint ctx_status;
++  uint size;
++  int data[16];
++} cx_os_state_t;
++
++typedef struct {
++  // static
++  int cx_guid;
++  int num_states;
++
++  // dynamic
++  int counter;
++  int index[1]; // For stateless cxus ONLY - stores the cx_index
++  queue_t *avail_state_ids;
++} cx_entry_t;
++
++// typedef struct {
++//   queue_t *avail_state_ids;
++// } cxu_state_info_t;
++
++// struct cx_entry_t* cx_map_t;
++
+ struct task_struct {
+ #ifdef CONFIG_THREAD_INFO_IN_TASK
+ 	/*
+@@ -1544,6 +1574,16 @@ struct task_struct {
+ 	struct user_event_mm		*user_event_mm;
+ #endif
+ 
++	uint cx_status;
++	uint cx_index;
++	uint mcx_table[1024];
++	cx_os_state_t cx_os_state_table[1024];
++
++	queue_t *cx_table_avail_indices;
++	
++	// TODO: This shouldn't be here - should be in the device_struct.
++	cx_entry_t cx_map[NUM_CX];
++
+ 	/*
+ 	 * New fields for task_struct should be added above here, so that
+ 	 * they are included in the randomized portion of task_struct.
+diff --git a/include/linux/syscalls.h b/include/linux/syscalls.h
+index fd9d12de7e92..f1c6844d7bb9 100644
+--- a/include/linux/syscalls.h
++++ b/include/linux/syscalls.h
+@@ -1279,4 +1279,10 @@ int __sys_getsockopt(int fd, int level, int optname, char __user *optval,
+ 		int __user *optlen);
+ int __sys_setsockopt(int fd, int level, int optname, char __user *optval,
+ 		int optlen);
++
++void sys_cx_init(void);
++long sys_cx_open(int cx_guid);
++long sys_cx_close(int cx_sel);
++long sys_context_restore(void);
++long sys_context_save(void);
+ #endif
+diff --git a/include/uapi/asm-generic/unistd.h b/include/uapi/asm-generic/unistd.h
+index 756b013fb832..8669c72d59e2 100644
+--- a/include/uapi/asm-generic/unistd.h
++++ b/include/uapi/asm-generic/unistd.h
+@@ -828,9 +828,21 @@ __SYSCALL(__NR_futex_wake, sys_futex_wake)
+ __SYSCALL(__NR_futex_wait, sys_futex_wait)
+ #define __NR_futex_requeue 456
+ __SYSCALL(__NR_futex_requeue, sys_futex_requeue)
++#define __NR_cx_open 457
++__SYSCALL(__NR_cx_open, sys_cx_open)
++#define __NR_cx_init 458
++__SYSCALL(__NR_cx_init, sys_cx_init)
++#define __NR_cx_close 459
++__SYSCALL(__NR_cx_close, sys_cx_close)
++#define __NR_context_save 460
++__SYSCALL(__NR_context_save, sys_context_save)
++#define __NR_context_restore 461
++__SYSCALL(__NR_context_restore, sys_context_restore)
++#define __NR_do_nothing 462
++__SYSCALL(__NR_do_nothing, sys_do_nothing)
+ 
+ #undef __NR_syscalls
+-#define __NR_syscalls 457
++#define __NR_syscalls 463
+ 
+ /*
+  * 32 bit systems traditionally used different
+diff --git a/lib/Makefile b/lib/Makefile
+index 6b09731d8e61..a1f08d1ea3bf 100644
+--- a/lib/Makefile
++++ b/lib/Makefile
+@@ -411,6 +411,8 @@ obj-$(CONFIG_GENERIC_LIB_DEVMEM_IS_ALLOWED) += devmem_is_allowed.o
+ 
+ obj-$(CONFIG_FIRMWARE_TABLE) += fw_table.o
+ 
++obj-y += queue.o
++
+ # FORTIFY_SOURCE compile-time behavior tests
+ TEST_FORTIFY_SRCS = $(wildcard $(srctree)/$(src)/test_fortify/*-*.c)
+ TEST_FORTIFY_LOGS = $(patsubst $(srctree)/$(src)/%.c, %.log, $(TEST_FORTIFY_SRCS))

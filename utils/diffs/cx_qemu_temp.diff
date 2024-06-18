@@ -1,0 +1,640 @@
+diff --git a/accel/stubs/tcg-stub.c b/accel/stubs/tcg-stub.c
+index 8a496a2a6f..37e19972fa 100644
+--- a/accel/stubs/tcg-stub.c
++++ b/accel/stubs/tcg-stub.c
+@@ -45,3 +45,8 @@ G_NORETURN void cpu_loop_exit_restore(CPUState *cpu, uintptr_t pc)
+ {
+     g_assert_not_reached();
+ }
++
++void cpu_loop_exit_restore_cx(CPUState *cpu, uintptr_t pc)
++{
++    g_assert_not_reached();
++}
+diff --git a/accel/tcg/cpu-exec-common.c b/accel/tcg/cpu-exec-common.c
+index bc9b1a260e..52d4109cc8 100644
+--- a/accel/tcg/cpu-exec-common.c
++++ b/accel/tcg/cpu-exec-common.c
+@@ -49,6 +49,17 @@ void cpu_loop_exit_restore(CPUState *cpu, uintptr_t pc)
+     cpu_loop_exit(cpu);
+ }
+ 
++void cpu_loop_exit_restore_cx(CPUState *cpu, uintptr_t pc)
++{
++    if (pc) {
++        cpu_restore_state(cpu, pc);
++    }
++    cpu->neg.can_do_io = true;
++    /* Undo any setting in generated code.  */
++    qemu_plugin_disable_mem_helpers(cpu);
++    siglongjmp(cpu->jmp_env, 0);
++}
++
+ void cpu_loop_exit_atomic(CPUState *cpu, uintptr_t pc)
+ {
+     /* Prevent looping if already executing in a serial context. */
+diff --git a/accel/tcg/translate-all.c b/accel/tcg/translate-all.c
+index c1708afcb0..b304fa7e74 100644
+--- a/accel/tcg/translate-all.c
++++ b/accel/tcg/translate-all.c
+@@ -194,6 +194,7 @@ static int cpu_unwind_data_from_tb(TranslationBlock *tb, uintptr_t host_pc,
+     }
+     return -1;
+ }
++#include "../../../../../include/utils.h"
+ 
+ /*
+  * The cpu state corresponding to 'host_pc' is restored in
+diff --git a/configure b/configure
+index d7e0926ff1..84c9a5eaa6 100755
+--- a/configure
++++ b/configure
+@@ -1462,7 +1462,7 @@ probe_target_compiler() {
+     case $1 in
+       *-softmmu)
+         if do_compiler "$target_cc" $target_cflags -o $TMPO -c $TMPC &&
+-          do_compiler "$target_cc" $target_cflags -r -nostdlib -o "${TMPDIR1}/${TMPB}2.o" "$TMPO" -lgcc; then
++          do_compiler "$target_cc" $target_cflags -r -nostdlib -o "${TMPDIR1}/${TMPB}2.o" "$TMPO" -lgcc -lci; then
+           got_cross_cc=yes
+           break
+         fi
+diff --git a/include/exec/cpu-common.h b/include/exec/cpu-common.h
+index 41115d8919..caf8ebadee 100644
+--- a/include/exec/cpu-common.h
++++ b/include/exec/cpu-common.h
+@@ -216,5 +216,7 @@ G_NORETURN void cpu_loop_exit_atomic(CPUState *cpu, uintptr_t pc);
+ #endif /* CONFIG_TCG */
+ G_NORETURN void cpu_loop_exit(CPUState *cpu);
+ G_NORETURN void cpu_loop_exit_restore(CPUState *cpu, uintptr_t pc);
++void cpu_loop_exit_restore_cx(CPUState *cpu, uintptr_t pc);
++
+ 
+ #endif /* CPU_COMMON_H */
+diff --git a/linux-user/riscv/cpu_loop.c b/linux-user/riscv/cpu_loop.c
+index bffca7db12..8c58a43303 100644
+--- a/linux-user/riscv/cpu_loop.c
++++ b/linux-user/riscv/cpu_loop.c
+@@ -73,7 +73,23 @@ void cpu_loop(CPURISCVState *env)
+             }
+             break;
+         case RISCV_EXCP_ILLEGAL_INST:
+-            force_sig_fault(TARGET_SIGILL, TARGET_ILL_ILLOPC, env->pc);
++            printf("ret: %d\n", ret);
++
++            if (env->gpr[17] == 462) {
++                ret = do_syscall(env,
++                                env->gpr[(env->elf_flags & EF_RISCV_RVE)
++                                   ? xT0 : xA7],
++                                env->gpr[xA0],
++                                env->gpr[xA1],
++                                env->gpr[xA2],
++                                env->gpr[xA3],
++                                env->gpr[xA4],
++                                env->gpr[xA5],
++                                0, 0);
++                env->gpr[xA0] = ret;
++            } else {
++                force_sig_fault(TARGET_SIGILL, TARGET_ILL_ILLOPC, env->pc);
++            }
+             break;
+         case RISCV_EXCP_BREAKPOINT:
+         case EXCP_DEBUG:
+diff --git a/meson.build b/meson.build
+index 6c77d9687d..e57b285a39 100644
+--- a/meson.build
++++ b/meson.build
+@@ -3752,13 +3752,15 @@ if targetos == 'darwin'
+   entitlement = find_program('scripts/entitlement.sh')
+ endif
+ 
++libmcx_selector_dep = cc.find_library('libmcx_selector', dirs: '/home/bf/research/riscv-tools/cx_runtime/build-qemu/lib/', required: true)
++
+ emulators = {}
+ foreach target : target_dirs
+   config_target = config_target_mak[target]
+   target_name = config_target['TARGET_NAME']
+   target_base_arch = config_target['TARGET_BASE_ARCH']
+   arch_srcs = [config_target_h[target]]
+-  arch_deps = []
++  arch_deps = [libmcx_selector_dep]
+   c_args = ['-DNEED_CPU_H',
+             '-DCONFIG_TARGET="@0@-config-target.h"'.format(target),
+             '-DCONFIG_DEVICES="@0@-config-devices.h"'.format(target)]
+diff --git a/system/main.c b/system/main.c
+index 9b91d21ea8..4ef23c4493 100644
+--- a/system/main.c
++++ b/system/main.c
+@@ -26,14 +26,18 @@
+ #include "qemu-main.h"
+ #include "sysemu/sysemu.h"
+ 
++#include "../../../../zoo/exports.h"
++#include <stdio.h>
++
+ #ifdef CONFIG_SDL
+ #include <SDL.h>
+ #endif
+ 
+ int qemu_default_main(void)
+ {
++    printf("initializing cx function pointers...\n");
++    cx_init_funcs();
+     int status;
+-
+     status = qemu_main_loop();
+     qemu_cleanup(status);
+ 
+diff --git a/target/riscv/cpu.c b/target/riscv/cpu.c
+index 83c7c0cf07..c532a4d949 100644
+--- a/target/riscv/cpu.c
++++ b/target/riscv/cpu.c
+@@ -242,6 +242,7 @@ static const char * const riscv_excp_names[] = {
+     "guest_load_page_fault",
+     "reserved",
+     "guest_store_page_fault",
++    "first_cx_use"
+ };
+ 
+ static const char * const riscv_intr_names[] = {
+@@ -717,6 +718,11 @@ static void riscv_cpu_dump_state(CPUState *cs, FILE *f, int flags)
+             CSR_SPMMASK,
+             CSR_MPMBASE,
+             CSR_MPMMASK,
++            /* CX */
++            CSR_MCX_SELECTOR,
++            CSR_CX_INDEX, 
++            CSR_MCX_TABLE,
++            CSR_CX_STATUS
+         };
+ 
+         for (i = 0; i < ARRAY_SIZE(dump_csrs); ++i) {
+diff --git a/target/riscv/cpu.h b/target/riscv/cpu.h
+index d74b361be6..c03eb8f198 100644
+--- a/target/riscv/cpu.h
++++ b/target/riscv/cpu.h
+@@ -149,6 +149,14 @@ struct CPUArchState {
+     target_ulong vtype;
+     bool vill;
+ 
++    /* CX */
++    uint32_t mcx_selector;
++    target_ulong mcx_table;
++    uint32_t cx_index;
++    uint32_t cx_status;
++
++    uint32_t cx_temp;
++
+     target_ulong pc;
+     target_ulong load_res;
+     target_ulong load_val;
+@@ -526,6 +534,8 @@ void riscv_cpu_set_mode(CPURISCVState *env, target_ulong newpriv);
+ void riscv_translate_init(void);
+ G_NORETURN void riscv_raise_exception(CPURISCVState *env,
+                                       uint32_t exception, uintptr_t pc);
++void riscv_raise_exception_cx(CPURISCVState *env,
++                                      uint32_t exception, uintptr_t pc);
+ 
+ target_ulong riscv_cpu_get_fflags(CPURISCVState *env);
+ void riscv_cpu_set_fflags(CPURISCVState *env, target_ulong);
+diff --git a/target/riscv/cpu_bits.h b/target/riscv/cpu_bits.h
+index ebd7917d49..c110c40073 100644
+--- a/target/riscv/cpu_bits.h
++++ b/target/riscv/cpu_bits.h
+@@ -68,6 +68,13 @@
+ #define CSR_VTYPE           0xc21
+ #define CSR_VLENB           0xc22
+ 
++/* CX */
++#define CSR_MCX_TABLE      0x145 // should be BC1, but qemu doesn't like that
++#define CSR_CX_INDEX 0x011 // should be 800
++#define CSR_MCX_SELECTOR   0x012 // should be BC0
++#define CSR_CX_STATUS  0x801 // should be 801
++// #define CSR_CX_TEMP 0x800
++
+ /* VCSR fields */
+ #define VCSR_VXSAT_SHIFT    0
+ #define VCSR_VXSAT          (0x1 << VCSR_VXSAT_SHIFT)
+@@ -682,6 +689,7 @@ typedef enum RISCVException {
+     RISCV_EXCP_LOAD_GUEST_ACCESS_FAULT = 0x15,
+     RISCV_EXCP_VIRT_INSTRUCTION_FAULT = 0x16,
+     RISCV_EXCP_STORE_GUEST_AMO_ACCESS_FAULT = 0x17,
++    RISCV_EXCP_FIRST_CX_USE = 0xe,
+ } RISCVException;
+ 
+ #define RISCV_EXCP_INT_FLAG                0x80000000
+diff --git a/target/riscv/cpu_helper.c b/target/riscv/cpu_helper.c
+index e7e23b34f4..a089ee2e5d 100644
+--- a/target/riscv/cpu_helper.c
++++ b/target/riscv/cpu_helper.c
+@@ -1643,6 +1643,7 @@ void riscv_cpu_do_interrupt(CPUState *cs)
+      */
+     bool async = !!(cs->exception_index & RISCV_EXCP_INT_FLAG);
+     target_ulong cause = cs->exception_index & RISCV_EXCP_INT_MASK;
++
+     uint64_t deleg = async ? env->mideleg : env->medeleg;
+     bool s_injected = env->mvip & (1 << cause) & env->mvien &&
+         !(env->mip & (1 << cause));
+@@ -1652,7 +1653,6 @@ void riscv_cpu_do_interrupt(CPUState *cs)
+     target_ulong tinst = 0;
+     target_ulong htval = 0;
+     target_ulong mtval2 = 0;
+-
+     if (!async) {
+         /* set tval to badaddr for traps with address information */
+         switch (cause) {
+@@ -1700,6 +1700,7 @@ void riscv_cpu_do_interrupt(CPUState *cs)
+             break;
+         case RISCV_EXCP_ILLEGAL_INST:
+         case RISCV_EXCP_VIRT_INSTRUCTION_FAULT:
++            printf("qemu illegal inst - tval: %08x\n", env->bins);
+             tval = env->bins;
+             break;
+         case RISCV_EXCP_BREAKPOINT:
+@@ -1727,6 +1728,12 @@ void riscv_cpu_do_interrupt(CPUState *cs)
+         }
+     }
+ 
++    int cause_name = cause;
++
++    // if (env->gpr[17] == 462 && cause == RISCV_EXCP_S_ECALL) {
++    //     cause_name = RISCV_EXCP_FIRST_CX_USE;
++    // }
++
+     trace_riscv_trap(env->mhartid, async, cause, env->pc, tval,
+                      riscv_cpu_get_trap_name(cause, async));
+ 
+@@ -1735,7 +1742,6 @@ void riscv_cpu_do_interrupt(CPUState *cs)
+                   "epc:0x"TARGET_FMT_lx", tval:0x"TARGET_FMT_lx", desc=%s\n",
+                   __func__, env->mhartid, async, cause, env->pc, tval,
+                   riscv_cpu_get_trap_name(cause, async));
+-
+     if (env->priv <= PRV_S && cause < 64 &&
+         (((deleg >> cause) & 1) || s_injected || vs_injected)) {
+         /* handle the trap in S-mode */
+@@ -1777,7 +1783,7 @@ void riscv_cpu_do_interrupt(CPUState *cs)
+         s = set_field(s, MSTATUS_SPP, env->priv);
+         s = set_field(s, MSTATUS_SIE, 0);
+         env->mstatus = s;
+-        env->scause = cause | ((target_ulong)async << (TARGET_LONG_BITS - 1));
++        env->scause = cause_name | ((target_ulong)async << (TARGET_LONG_BITS - 1));
+         env->sepc = env->pc;
+         env->stval = tval;
+         env->htval = htval;
+@@ -1808,7 +1814,7 @@ void riscv_cpu_do_interrupt(CPUState *cs)
+         s = set_field(s, MSTATUS_MPP, env->priv);
+         s = set_field(s, MSTATUS_MIE, 0);
+         env->mstatus = s;
+-        env->mcause = cause | ~(((target_ulong)-1) >> async);
++        env->mcause = cause_name | ~(((target_ulong)-1) >> async);
+         env->mepc = env->pc;
+         env->mtval = tval;
+         env->mtval2 = mtval2;
+diff --git a/target/riscv/csr.c b/target/riscv/csr.c
+index c50a33397c..764c126d4c 100644
+--- a/target/riscv/csr.c
++++ b/target/riscv/csr.c
+@@ -30,6 +30,8 @@
+ #include "qemu/guest-random.h"
+ #include "qapi/error.h"
+ 
++// Brandon included
++#include "exec/cpu_ldst.h"
+ 
+ /* CSR function table public API */
+ void riscv_get_csr_ops(int csrno, riscv_csr_operations *ops)
+@@ -1150,6 +1152,7 @@ static const uint64_t all_ints = M_MODE_INTERRUPTS | S_MODE_INTERRUPTS |
+                          (1ULL << (RISCV_EXCP_M_ECALL)) | \
+                          (1ULL << (RISCV_EXCP_INST_PAGE_FAULT)) | \
+                          (1ULL << (RISCV_EXCP_LOAD_PAGE_FAULT)) | \
++                         (1ULL << (RISCV_EXCP_FIRST_CX_USE))    | \
+                          (1ULL << (RISCV_EXCP_STORE_PAGE_FAULT)) | \
+                          (1ULL << (RISCV_EXCP_INST_GUEST_PAGE_FAULT)) | \
+                          (1ULL << (RISCV_EXCP_LOAD_GUEST_ACCESS_FAULT)) | \
+@@ -1159,6 +1162,7 @@ static const target_ulong vs_delegable_excps = DELEGABLE_EXCPS &
+     ~((1ULL << (RISCV_EXCP_S_ECALL)) |
+       (1ULL << (RISCV_EXCP_VS_ECALL)) |
+       (1ULL << (RISCV_EXCP_M_ECALL)) |
++      (1ULL << (RISCV_EXCP_FIRST_CX_USE)) |
+       (1ULL << (RISCV_EXCP_INST_GUEST_PAGE_FAULT)) |
+       (1ULL << (RISCV_EXCP_LOAD_GUEST_ACCESS_FAULT)) |
+       (1ULL << (RISCV_EXCP_VIRT_INSTRUCTION_FAULT)) |
+@@ -2990,7 +2994,7 @@ static RISCVException read_satp(CPURISCVState *env, int csrno,
+         *val = 0;
+         return RISCV_EXCP_NONE;
+     }
+-    *val = env->satp;
++    *val = env->satp;   
+     return RISCV_EXCP_NONE;
+ }
+ 
+@@ -4471,6 +4475,124 @@ static RISCVException write_jvt(CPURISCVState *env, int csrno,
+     return RISCV_EXCP_NONE;
+ }
+ 
++static RISCVException read_mcx_selector(CPURISCVState *env, int csrno,
++                                target_ulong *val)
++{
++    *val = env->mcx_selector;
++    return RISCV_EXCP_NONE;
++}
++
++static RISCVException write_mcx_selector(CPURISCVState *env, int csrno,
++                                 target_ulong val)
++{
++// #if !defined(CONFIG_USER_ONLY)
++//     env->mstatus |= MSTATUS_VS;
++// #endif
++    env->mcx_selector = val;
++    return RISCV_EXCP_NONE;
++}
++
++// static RISCVException read_cx_temp(CPURISCVState *env, int csrno,
++//                                 target_ulong *val)
++// {
++//     *val = env->cx_temp;
++//     return RISCV_EXCP_NONE;
++// }
++
++// static RISCVException write_cx_temp(CPURISCVState *env, int csrno,
++//                                  target_ulong val)
++// {
++// // #if !defined(CONFIG_USER_ONLY)
++// //     env->mstatus |= MSTATUS_VS;
++// // #endif
++//     env->cx_temp = val;
++//     return RISCV_EXCP_NONE;
++// }
++
++
++static RISCVException read_cx_status(CPURISCVState *env, int csrno,
++                                target_ulong *val)
++{
++    int prev_priv = env->priv;
++    if (prev_priv == PRV_S) {
++        riscv_cpu_set_mode(env, PRV_U);
++    }
++    *val = env->cx_status;
++    if (prev_priv == PRV_S) {
++        riscv_cpu_set_mode(env, PRV_S);
++    }
++    return RISCV_EXCP_NONE;
++}
++
++static RISCVException write_cx_status(CPURISCVState *env, int csrno,
++                                 target_ulong val)
++{
++// #if !defined(CONFIG_USER_ONLY)
++//     env->mstatus |= MSTATUS_VS;
++// #endif
++    int prev_priv = env->priv;
++    if (prev_priv == PRV_S) {
++        riscv_cpu_set_mode(env, PRV_U);
++    }
++    env->cx_status = val;
++    if (prev_priv == PRV_S) {
++        riscv_cpu_set_mode(env, PRV_S);
++    }
++    return RISCV_EXCP_NONE;
++}
++
++static RISCVException read_cx_index(CPURISCVState *env, int csrno,
++                                target_ulong *val)
++{
++    *val = env->cx_index;
++    return RISCV_EXCP_NONE;
++}
++
++static RISCVException write_cx_index(CPURISCVState *env, int csrno,
++                                 target_ulong val)
++{
++// #if !defined(CONFIG_USER_ONLY)
++//     env->mstatus |= MSTATUS_VS;
++// #endif
++   
++    env->cx_index = val;
++    int prev_priv = env->priv;
++
++    riscv_cpu_set_mode(env, PRV_S);
++    uintptr_t ra = GETPC();
++    int mmu_idx = riscv_cpu_mmu_index(env, true);
++    MemOpIdx oi = make_memop_idx(MO_32, mmu_idx);
++
++    // if the selector index is out of range, have an error
++    // or if it's bigger than the table size
++    // on git: can check branch on git for CX CSR approach
++
++    target_ulong temp = cpu_ldl_mmu(env, env->mcx_table + val * 4, oi, ra);
++    riscv_cpu_set_mode(env, prev_priv);
++    // printf("temp: %08x, val: %d\n", temp, val);
++    env->mcx_selector = temp;
++    // printf("cx_index: %d, mcx_selector: %08x\n", env->cx_index, env->mcx_selector);
++    return RISCV_EXCP_NONE;
++}
++
++
++static RISCVException read_mcx_table(CPURISCVState *env, int csrno,
++                                target_ulong *val)
++{
++    *val = env->mcx_table;
++    return RISCV_EXCP_NONE;
++}
++
++static RISCVException write_mcx_table(CPURISCVState *env, int csrno,
++                                 target_ulong val)
++{
++// #if !defined(CONFIG_USER_ONLY)
++//     env->mstatus |= MSTATUS_VS;
++// #endif
++    env->mcx_table = val;
++    return RISCV_EXCP_NONE;
++}
++
+ /*
+  * Control and Status Register function table
+  * riscv_csr_operations::predicate() must be provided for an implemented CSR
+@@ -4507,6 +4629,16 @@ riscv_csr_operations csr_ops[CSR_TABLE_SIZE] = {
+     /* Zcmt Extension */
+     [CSR_JVT] = {"jvt", zcmt, read_jvt, write_jvt},
+ 
++    /* CX
++    * Note: This should be defined as a machine mode CSR, but I'm not sure how to
++    *       configure the build to allow machine mode
++    */
++    [CSR_MCX_SELECTOR] = { "mcx_selector", any, read_mcx_selector, write_mcx_selector },
++    [CSR_CX_INDEX] = { "cx_index", any, read_cx_index, write_cx_index },
++    [CSR_MCX_TABLE] =  { "mcx_table", any, read_mcx_table, write_mcx_table },
++    [CSR_CX_STATUS] =  { "cx_status", any, read_cx_status, write_cx_status },
++    // [CSR_CX_TEMP] =  { "cx_temp", any, read_cx_temp, write_cx_temp },
++
+ #if !defined(CONFIG_USER_ONLY)
+     /* Machine Timers and Counters */
+     [CSR_MCYCLE]    = { "mcycle",    any,   read_hpmcounter,
+diff --git a/target/riscv/helper.h b/target/riscv/helper.h
+index 8a63523851..2175443b89 100644
+--- a/target/riscv/helper.h
++++ b/target/riscv/helper.h
+@@ -85,6 +85,9 @@ DEF_HELPER_FLAGS_1(zip, TCG_CALL_NO_RWG_SE, tl, tl)
+ DEF_HELPER_FLAGS_2(xperm4, TCG_CALL_NO_RWG_SE, tl, tl, tl)
+ DEF_HELPER_FLAGS_2(xperm8, TCG_CALL_NO_RWG_SE, tl, tl, tl)
+ 
++/* CX */
++DEF_HELPER_4(cx_reg, tl, env, tl, tl, tl)
++
+ /* Floating Point - Half Precision */
+ DEF_HELPER_FLAGS_3(fadd_h, TCG_CALL_NO_RWG, i64, env, i64, i64)
+ DEF_HELPER_FLAGS_3(fsub_h, TCG_CALL_NO_RWG, i64, env, i64, i64)
+@@ -128,10 +131,13 @@ DEF_HELPER_4(csrrw, tl, env, int, tl, tl)
+ DEF_HELPER_2(csrr_i128, tl, env, int)
+ DEF_HELPER_4(csrw_i128, void, env, int, tl, tl)
+ DEF_HELPER_6(csrrw_i128, tl, env, int, tl, tl, tl, tl)
++// DEF_HELPER_1(mcx_trap, void, env)
++
+ #ifndef CONFIG_USER_ONLY
+ DEF_HELPER_1(sret, tl, env)
+ DEF_HELPER_1(mret, tl, env)
+ DEF_HELPER_1(wfi, void, env)
++
+ DEF_HELPER_1(tlb_flush, void, env)
+ DEF_HELPER_1(tlb_flush_all, void, env)
+ /* Native Debug */
+diff --git a/target/riscv/insn32.decode b/target/riscv/insn32.decode
+index 33597fe2bb..c737ad5647 100644
+--- a/target/riscv/insn32.decode
++++ b/target/riscv/insn32.decode
+@@ -39,6 +39,9 @@
+ %imm_rnum 20:4
+ %imm_z6   26:1 15:5
+ 
++# CX
++%cf_id    25:7 12:3
++
+ # Argument sets:
+ &empty
+ &b    imm rs2 rs1
+@@ -98,6 +101,9 @@
+ @k_aes   .. ..... ..... .....  ... ..... ....... &k_aes  shamt=%imm_bs   %rs2 %rs1 %rd
+ @i_aes   .. ..... ..... .....  ... ..... ....... &i      imm=%imm_rnum        %rs1 %rd
+ 
++# Formats CX:
++@cx_r   ....... ..... ..... ... ..... ....... %cf_id %rd %rs1 %rs2
++
+ # Formats 64:
+ @sh5     .......  ..... .....  ... ..... ....... &shift  shamt=%sh5      %rs1 %rd
+ 
+@@ -1004,3 +1010,6 @@ vgmul_vv    101000 1 ..... 10001 010 ..... 1110111 @r2_vm_1
+ vsm4k_vi    100001 1 ..... ..... 010 ..... 1110111 @r_vm_1
+ vsm4r_vv    101000 1 ..... 10000 010 ..... 1110111 @r2_vm_1
+ vsm4r_vs    101001 1 ..... 10000 010 ..... 1110111 @r2_vm_1
++
++# *** CX ***
++cx_reg     ....... ..... ..... ... ..... 0001011 @cx_r
+\ No newline at end of file
+diff --git a/target/riscv/machine.c b/target/riscv/machine.c
+index fdde243e04..0d8888ff8d 100644
+--- a/target/riscv/machine.c
++++ b/target/riscv/machine.c
+@@ -409,6 +409,13 @@ const VMStateDescription vmstate_riscv_cpu = {
+         VMSTATE_UINTTL(env.mscratch, RISCVCPU),
+         VMSTATE_UINT64(env.stimecmp, RISCVCPU),
+ 
++        /* CX */
++        VMSTATE_UINTTL(env.mcx_selector, RISCVCPU),
++        VMSTATE_UINTTL(env.cx_index, RISCVCPU),
++        VMSTATE_UINTTL(env.mcx_table, RISCVCPU),
++        VMSTATE_UINTTL(env.cx_status, RISCVCPU),
++
++
+         VMSTATE_END_OF_LIST()
+     },
+     .subsections = (const VMStateDescription * []) {
+diff --git a/target/riscv/meson.build b/target/riscv/meson.build
+index a5e0734e7f..b3e60c7d9c 100644
+--- a/target/riscv/meson.build
++++ b/target/riscv/meson.build
+@@ -22,7 +22,8 @@ riscv_ss.add(files(
+   'm128_helper.c',
+   'crypto_helper.c',
+   'zce_helper.c',
+-  'vcrypto_helper.c'
++  'vcrypto_helper.c',
++  'cx_helper.c'
+ ))
+ 
+ riscv_system_ss = ss.source_set()
+diff --git a/target/riscv/op_helper.c b/target/riscv/op_helper.c
+index 5355225d56..f596dbea84 100644
+--- a/target/riscv/op_helper.c
++++ b/target/riscv/op_helper.c
+@@ -25,6 +25,9 @@
+ #include "exec/cpu_ldst.h"
+ #include "exec/helper-proto.h"
+ 
++#include "../../../../include/utils.h"
++
++
+ /* Exceptions processing helpers */
+ G_NORETURN void riscv_raise_exception(CPURISCVState *env,
+                                       uint32_t exception, uintptr_t pc)
+@@ -34,6 +37,14 @@ G_NORETURN void riscv_raise_exception(CPURISCVState *env,
+     cpu_loop_exit_restore(cs, pc);
+ }
+ 
++void riscv_raise_exception_cx(CPURISCVState *env,
++                                      uint32_t exception, uintptr_t pc)
++{
++    CPUState *cs = env_cpu(env);
++    cs->exception_index = exception;
++    cpu_loop_exit_restore_cx(cs, pc);
++}
++
+ void helper_raise_exception(CPURISCVState *env, uint32_t exception)
+ {
+     riscv_raise_exception(env, exception, 0);
+@@ -542,4 +553,21 @@ target_ulong helper_hyp_hlvx_wu(CPURISCVState *env, target_ulong addr)
+     return cpu_ldl_code_mmu(env, addr, oi, ra);
+ }
+ 
++// static volatile int aaa = 1;
++
++// void helper_mcx_trap(CPURISCVState *env) {
++//     // uint mcx_selector = env->mcx_selector;
++//     // int cxe = GET_CX_CXE(mcx_selector);
++//     // if (cxe == 1) {
++//     //     // While there will be a csrw in the kernel, it will not update this selector value
++//     //     // in time, as 2 instructions are executed in a single cx_reg instruction 
++//     //     // (the cx_reg and this mcx_trap). There may be a better way to do this in qemu.
++//     //     env->mcx_selector &= ~(1 << (CX_CXE_START_INDEX));
++//     //     int prev_val = env->gpr[17];
++//     //     env->gpr[17] = 462;
++//     //     riscv_raise_exception(env, RISCV_EXCP_FIRST_CX_USE, GETPC());
++//     //     env->gpr[17] = prev_val;
++//     // }
++// }
++
+ #endif /* !CONFIG_USER_ONLY */
+diff --git a/target/riscv/tcg/tcg-cpu.c b/target/riscv/tcg/tcg-cpu.c
+index 8a35683a34..ac433f5fe6 100644
+--- a/target/riscv/tcg/tcg-cpu.c
++++ b/target/riscv/tcg/tcg-cpu.c
+@@ -59,6 +59,7 @@ static void riscv_cpu_synchronize_from_tb(CPUState *cs,
+     }
+ }
+ 
++#include "../../../../../../include/utils.h"
+ static void riscv_restore_state_to_opc(CPUState *cs,
+                                        const TranslationBlock *tb,
+                                        const uint64_t *data)
+diff --git a/target/riscv/translate.c b/target/riscv/translate.c
+index f0be79bb16..0dbefddf89 100644
+--- a/target/riscv/translate.c
++++ b/target/riscv/translate.c
+@@ -1102,6 +1102,9 @@ static uint32_t opcode_at(DisasContextBase *dcbase, target_ulong pc)
+ #include "insn_trans/trans_xthead.c.inc"
+ #include "insn_trans/trans_xventanacondops.c.inc"
+ 
++/* CX */
++#include "insn_trans/trans_cx.c.inc"
++
+ /* Include the auto-generated decoder for 16 bit insn */
+ #include "decode-insn16.c.inc"
+ #include "insn_trans/trans_rvzce.c.inc"
