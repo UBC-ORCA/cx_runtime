@@ -57,7 +57,7 @@ index 9b91d21ea8..4ef23c4493 100644
      qemu_cleanup(status);
  
 diff --git a/target/riscv/cpu.c b/target/riscv/cpu.c
-index 83c7c0cf07..0a1965bb01 100644
+index 83c7c0cf07..94942d1c4d 100644
 --- a/target/riscv/cpu.c
 +++ b/target/riscv/cpu.c
 @@ -717,6 +717,11 @@ static void riscv_cpu_dump_state(CPUState *cs, FILE *f, int flags)
@@ -66,7 +66,7 @@ index 83c7c0cf07..0a1965bb01 100644
              CSR_MPMMASK,
 +            /* CX */
 +            CSR_MCX_SELECTOR,
-+            CSR_CX_INDEX, 
++            CSR_CX_INDEX,
 +            CSR_MCX_TABLE,
 +            CSR_CX_STATUS
          };
@@ -90,7 +90,7 @@ index d74b361be6..1efb871a67 100644
      target_ulong load_res;
      target_ulong load_val;
 diff --git a/target/riscv/cpu_bits.h b/target/riscv/cpu_bits.h
-index ebd7917d49..a72606822f 100644
+index ebd7917d49..58e7040267 100644
 --- a/target/riscv/cpu_bits.h
 +++ b/target/riscv/cpu_bits.h
 @@ -68,6 +68,12 @@
@@ -101,13 +101,13 @@ index ebd7917d49..a72606822f 100644
 +#define CSR_MCX_TABLE      0x145 // should be BC1, but qemu doesn't like that
 +#define CSR_CX_INDEX 0x011 // should be 800
 +#define CSR_MCX_SELECTOR   0x012 // should be BC0
-+#define CSR_CX_STATUS  0x013 // should be 801
++#define CSR_CX_STATUS  0x801 // should be 801
 +
  /* VCSR fields */
  #define VCSR_VXSAT_SHIFT    0
  #define VCSR_VXSAT          (0x1 << VCSR_VXSAT_SHIFT)
 diff --git a/target/riscv/csr.c b/target/riscv/csr.c
-index c50a33397c..1c54093f97 100644
+index c50a33397c..7c6152143f 100644
 --- a/target/riscv/csr.c
 +++ b/target/riscv/csr.c
 @@ -30,6 +30,8 @@
@@ -119,16 +119,7 @@ index c50a33397c..1c54093f97 100644
  
  /* CSR function table public API */
  void riscv_get_csr_ops(int csrno, riscv_csr_operations *ops)
-@@ -2990,7 +2992,7 @@ static RISCVException read_satp(CPURISCVState *env, int csrno,
-         *val = 0;
-         return RISCV_EXCP_NONE;
-     }
--    *val = env->satp;
-+    *val = env->satp;   
-     return RISCV_EXCP_NONE;
- }
- 
-@@ -4471,6 +4473,91 @@ static RISCVException write_jvt(CPURISCVState *env, int csrno,
+@@ -4471,6 +4473,104 @@ static RISCVException write_jvt(CPURISCVState *env, int csrno,
      return RISCV_EXCP_NONE;
  }
  
@@ -149,10 +140,18 @@ index c50a33397c..1c54093f97 100644
 +    return RISCV_EXCP_NONE;
 +}
 +
++
 +static RISCVException read_cx_status(CPURISCVState *env, int csrno,
 +                                target_ulong *val)
 +{
++    int prev_priv = env->priv;
++    if (prev_priv == PRV_S) {
++        riscv_cpu_set_mode(env, PRV_U);
++    }
 +    *val = env->cx_status;
++    if (prev_priv == PRV_S) {
++        riscv_cpu_set_mode(env, PRV_S);
++    }
 +    return RISCV_EXCP_NONE;
 +}
 +
@@ -162,7 +161,14 @@ index c50a33397c..1c54093f97 100644
 +// #if !defined(CONFIG_USER_ONLY)
 +//     env->mstatus |= MSTATUS_VS;
 +// #endif
++    int prev_priv = env->priv;
++    if (prev_priv == PRV_S) {
++        riscv_cpu_set_mode(env, PRV_U);
++    }
 +    env->cx_status = val;
++    if (prev_priv == PRV_S) {
++        riscv_cpu_set_mode(env, PRV_S);
++    }
 +    return RISCV_EXCP_NONE;
 +}
 +
@@ -179,7 +185,7 @@ index c50a33397c..1c54093f97 100644
 +// #if !defined(CONFIG_USER_ONLY)
 +//     env->mstatus |= MSTATUS_VS;
 +// #endif
-+   
++
 +    env->cx_index = val;
 +    int prev_priv = env->priv;
 +
@@ -194,11 +200,9 @@ index c50a33397c..1c54093f97 100644
 +
 +    target_ulong temp = cpu_ldl_mmu(env, env->mcx_table + val * 4, oi, ra);
 +    riscv_cpu_set_mode(env, prev_priv);
-+  
 +    env->mcx_selector = temp;
 +    return RISCV_EXCP_NONE;
 +}
-+
 +
 +static RISCVException read_mcx_table(CPURISCVState *env, int csrno,
 +                                target_ulong *val)
@@ -220,7 +224,7 @@ index c50a33397c..1c54093f97 100644
  /*
   * Control and Status Register function table
   * riscv_csr_operations::predicate() must be provided for an implemented CSR
-@@ -4507,6 +4594,15 @@ riscv_csr_operations csr_ops[CSR_TABLE_SIZE] = {
+@@ -4507,6 +4607,15 @@ riscv_csr_operations csr_ops[CSR_TABLE_SIZE] = {
      /* Zcmt Extension */
      [CSR_JVT] = {"jvt", zcmt, read_jvt, write_jvt},
  
@@ -314,6 +318,19 @@ index a5e0734e7f..b3e60c7d9c 100644
  ))
  
  riscv_system_ss = ss.source_set()
+diff --git a/target/riscv/tcg/tcg-cpu.c b/target/riscv/tcg/tcg-cpu.c
+index 8a35683a34..ca0cd374b3 100644
+--- a/target/riscv/tcg/tcg-cpu.c
++++ b/target/riscv/tcg/tcg-cpu.c
+@@ -58,7 +58,7 @@ static void riscv_cpu_synchronize_from_tb(CPUState *cs,
+         }
+     }
+ }
+-
++#include "../../../../../../include/utils.h"
+ static void riscv_restore_state_to_opc(CPUState *cs,
+                                        const TranslationBlock *tb,
+                                        const uint64_t *data)
 diff --git a/target/riscv/translate.c b/target/riscv/translate.c
 index f0be79bb16..0dbefddf89 100644
 --- a/target/riscv/translate.c

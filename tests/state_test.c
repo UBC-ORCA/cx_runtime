@@ -47,7 +47,6 @@ void state_test() {
     assert( state_size == 1 );  // state size unchanged
     assert( error == 0 );       // No error
     assert( initializer_cfg == 0 ); // initializer unchanged
-
     result = mac(a, b);
     assert( result == 15 );
 
@@ -57,7 +56,6 @@ void state_test() {
     state_size = GET_CX_STATE_SIZE(status);
     error = GET_CX_ERROR(status);
     initializer_cfg = GET_CX_INITIALIZER(status);
-
     assert( cs_status == DIRTY );
     assert( state_size == 1 );  // state size unchanged
     assert( error == 0 );       // No error
@@ -72,7 +70,6 @@ void state_test() {
     int cx_sel_A1 = cx_open(CX_GUID_MULACC, share_A);
     cx_index = cx_csr_read(CX_INDEX);
     assert( cx_index == cx_sel_A0 );
-
     int cx_sel_A2 = cx_open(CX_GUID_MULACC, share_A);
     cx_index = cx_csr_read(CX_INDEX);
     assert( cx_index == cx_sel_A0 );
@@ -88,7 +85,7 @@ void state_test() {
     assert( result == 9 );
     cx_error = cx_error_read();
     assert ( cx_error == 0 );
-
+    
     cx_error_clear();
     cx_sel(cx_sel_A2);
     cx_index = cx_csr_read(CX_INDEX);

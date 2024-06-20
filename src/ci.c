@@ -13,6 +13,9 @@ void cx_init() {
 
 void cx_sel(int cx_index) {
   cx_csr_write(CX_INDEX, cx_index);
+  // TODO (Brandon): This CX_REG_HELPER should not be here for running on hw. It's a hack
+  // for running on qemu.
+  CX_REG_HELPER(0, 0, 0);
 }
 
 int32_t cx_open(cx_guid_t cx_guid, cx_share_t cx_share) {

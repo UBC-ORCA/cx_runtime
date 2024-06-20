@@ -6,6 +6,14 @@
 #define CX_STATUS     0x801 // should be 0x801, was using 0x013
 #define MCX_TABLE     0x145 // should be 0xBC1
 
+#define CUSTOM0 0xb
+#define CUSTOM1 0x2b
+#define CUSTOM2 0x5b
+
+#define CX_REG_TYPE  CUSTOM0
+#define CX_IMM_TYPE  CUSTOM1
+#define CX_FLEX_TYPE CUSTOM2
+
 #define CX_INVALID_SELECTOR 0x10000000
 #define CX_LEGACY 0
 #define MCX_VERSION 1
@@ -141,7 +149,7 @@ typedef union {
         uint cxe       : CX_CXE_BITS;
         uint version   : CX_VERSION_ID_BITS;
     } sel;
-        int idx;
+        uint idx;
  } cx_selidx_t;
 
 typedef union {
@@ -158,28 +166,33 @@ typedef union {
     int idx;
 } cx_status_t;
 
-enum {
+enum CX_CS {
     OFF, 
     INITIAL, 
     CLEAN,
     DIRTY
-};       
+};
+
+enum SHARE_TYPE {
+	EXCLUDED,
+	PROCESS_SHARED,
+	GLOBAL_SHARED
+};
 
 #define CX_REG_HELPER(cf_id, rs1, rs2)      ({           \
-    register unsigned long __v;                          \
+    register int __v;                                    \
     asm volatile("      cx_reg " #cf_id ",%0,%1,%2;\n\t" \
                  : "=r" (__v)                            \
                  : "r" (rs1), "r" (rs2)                  \
-                 :                                       \
+                 : "memory"                              \
     );                                                   \
 	__v;							                     \
-    }) 
-
+    })
 
 #define __ASM_STR(x)	#x
 #define cx_csr_read(csr)				                \
 ({								                        \
-	register unsigned long __v;				            \
+	register unsigned int __v;				            \
 	__asm__ __volatile__ ("csrr %0, " __ASM_STR(csr)	\
 			      : "=r" (__v) :			            \
 			      : "memory");			                \
@@ -188,11 +201,23 @@ enum {
 
 #define cx_csr_write(csr, val)					        \
 ({								                        \
-	unsigned long __v = (unsigned long)(val);		    \
+	unsigned int __v = (unsigned int)(val);		        \
 	__asm__ __volatile__ ("csrw " __ASM_STR(csr) ", %0"	\
 			      : : "rK" (__v)			            \
 			      : "memory");			                \
 })
+
+// TODO (Brandon): Fix this.
+// This is here because of an issue with qemu. There is no way (that I've found)
+// to both trigger a trap with a cx_{reg, imm, flex} instruction AND have it return
+// a value. I've made this (1023) as a nop that triggers the trap, so that when
+// the first useful cx_{} instruction is invoked, the proper instruction will be
+// executed and correct value returned.
+#define cx_csr_write_index(val)             \
+    ({                                      \
+        cx_csr_write(CX_INDEX, val);        \
+        CX_REG_HELPER(0, 0, 0);             \
+    })
 
 #define CX_WRITE_STATE(index, value)  ({                   \
     asm volatile("      cx_reg 1020, zero,%0,%1;\n\t"      \
@@ -202,7 +227,7 @@ enum {
     );   })
 
 #define CX_WRITE_STATUS(status)  ({                        \
-    asm volatile("      cx_reg 1022, x0,%0,x0;\n\t"        \
+    asm volatile("      cx_reg 1022, zero,%0,x0;\n\t"      \
                  :                                         \
                  : "r" (status)                            \
                  :                                         \

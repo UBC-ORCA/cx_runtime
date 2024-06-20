@@ -8,8 +8,81 @@ index 464b34a08f51..64a2bfedd213 100644
  obj-y			+= $(ARCH_DRIVERS)
 +obj-y           += cx_sys/
 +
+diff --git a/arch/riscv/include/asm/asm-prototypes.h b/arch/riscv/include/asm/asm-prototypes.h
+index 36b955c762ba..637cd642e6cc 100644
+--- a/arch/riscv/include/asm/asm-prototypes.h
++++ b/arch/riscv/include/asm/asm-prototypes.h
+@@ -24,6 +24,7 @@ DECLARE_DO_ERROR_INFO(do_trap_ecall_u);
+ DECLARE_DO_ERROR_INFO(do_trap_ecall_s);
+ DECLARE_DO_ERROR_INFO(do_trap_ecall_m);
+ DECLARE_DO_ERROR_INFO(do_trap_break);
++DECLARE_DO_ERROR_INFO(do_trap_first_cx_use);
+ 
+ asmlinkage void handle_bad_stack(struct pt_regs *regs);
+ asmlinkage void do_page_fault(struct pt_regs *regs);
+diff --git a/arch/riscv/kernel/traps.c b/arch/riscv/kernel/traps.c
+index a1b9be3c4332..3a3deadea0d6 100644
+--- a/arch/riscv/kernel/traps.c
++++ b/arch/riscv/kernel/traps.c
+@@ -32,6 +32,8 @@
+ #include <asm/vector.h>
+ #include <asm/irq_stack.h>
+ 
++#include "../../../../research/riscv-tools/cx_runtime/include/utils.h"
++
+ int show_unhandled_signals = 1;
+ 
+ static DEFINE_SPINLOCK(die_lock);
+@@ -113,7 +115,6 @@ void die(struct pt_regs *regs, const char *str)
+ void do_trap(struct pt_regs *regs, int signo, int code, unsigned long addr)
+ {
+ 	struct task_struct *tsk = current;
+-
+ 	if (show_unhandled_signals && unhandled_signal(tsk, signo)
+ 	    && printk_ratelimit()) {
+ 		pr_info("%s[%d]: unhandled signal %d code 0x%x at 0x" REG_FMT,
+@@ -169,6 +170,14 @@ DO_ERROR_INFO(do_trap_insn_fault,
+ asmlinkage __visible __trap_section void do_trap_insn_illegal(struct pt_regs *regs)
+ {
+ 	bool handled;
++	u32 insn = (u32)regs->badaddr;
++	uint opc = insn & ((1<<7)-1);
++	
++	if (opc == CX_REG_TYPE || opc == CX_IMM_TYPE || opc == CX_FLEX_TYPE) {
++		do_trap_first_cx_use(regs);
++		return;
++	}
++
+ 
+ 	if (user_mode(regs)) {
+ 		irqentry_enter_from_user_mode(regs);
+@@ -339,6 +348,24 @@ asmlinkage __visible __trap_section void do_trap_ecall_u(struct pt_regs *regs)
+ 
+ }
+ 
++/* TODO (cx, Brandon): This is incredibly hacky - Used for virtualization of state. */
++asmlinkage __visible __trap_section void do_trap_first_cx_use(struct pt_regs *regs)
++{
++	long syscall = 462;
++
++	regs->epc += 4;
++	regs->orig_a0 = regs->a0;
++
++	riscv_v_vstate_discard(regs);
++
++	if (syscall >= 0 && syscall < NR_syscalls)
++		syscall_handler(regs, syscall);
++	else if (syscall != -1)
++		regs->a0 = -ENOSYS;
++
++	syscall_exit_to_user_mode(regs);
++}
++
+ #ifdef CONFIG_MMU
+ asmlinkage __visible noinstr void do_page_fault(struct pt_regs *regs)
+ {
 diff --git a/include/linux/sched.h b/include/linux/sched.h
-index 292c31697248..748aea608f09 100644
+index 292c31697248..d0b7d66d8eb8 100644
 --- a/include/linux/sched.h
 +++ b/include/linux/sched.h
 @@ -39,6 +39,8 @@
@@ -21,24 +94,18 @@ index 292c31697248..748aea608f09 100644
  /* task_struct member predeclarations (sorted alphabetically): */
  struct audit_context;
  struct bio_list;
-@@ -743,6 +745,40 @@ struct kmap_ctrl {
+@@ -743,6 +745,34 @@ struct kmap_ctrl {
  #endif
  };
  
 +#define NUM_CX 3
-+
-+enum {
-+	EXCLUDED,
-+	PROCESS_SHARED,
-+	GLOBAL_SHARED
-+};
 +
 +typedef uint cx_stare_t;
 +
 +typedef struct {
 +  cx_stare_t share;
 +  uint ctx_status;
-+  int size;
++  uint size;
 +  int *data;
 +} cx_os_state_t;
 +
@@ -48,7 +115,7 @@ index 292c31697248..748aea608f09 100644
 +  int num_states;
 +
 +  // dynamic
-+  int counter;
++  int *counter;
 +  int *index; // For stateless cxus ONLY - stores the cx_index
 +  queue_t *avail_state_ids;
 +} cx_entry_t;
@@ -62,13 +129,13 @@ index 292c31697248..748aea608f09 100644
  struct task_struct {
  #ifdef CONFIG_THREAD_INFO_IN_TASK
  	/*
-@@ -1544,6 +1580,16 @@ struct task_struct {
+@@ -1544,6 +1574,16 @@ struct task_struct {
  	struct user_event_mm		*user_event_mm;
  #endif
  
 +	uint cx_status;
 +	uint cx_index;
-+	int *mcx_table;
++	uint *mcx_table;
 +	cx_os_state_t *cx_os_state_table;
 +
 +	queue_t *cx_table_avail_indices;
@@ -80,10 +147,10 @@ index 292c31697248..748aea608f09 100644
  	 * New fields for task_struct should be added above here, so that
  	 * they are included in the randomized portion of task_struct.
 diff --git a/include/linux/syscalls.h b/include/linux/syscalls.h
-index fd9d12de7e92..f1c6844d7bb9 100644
+index fd9d12de7e92..8d9a729d0366 100644
 --- a/include/linux/syscalls.h
 +++ b/include/linux/syscalls.h
-@@ -1279,4 +1279,10 @@ int __sys_getsockopt(int fd, int level, int optname, char __user *optval,
+@@ -1279,4 +1279,12 @@ int __sys_getsockopt(int fd, int level, int optname, char __user *optval,
  		int __user *optlen);
  int __sys_setsockopt(int fd, int level, int optname, char __user *optval,
  		int optlen);
@@ -93,12 +160,14 @@ index fd9d12de7e92..f1c6844d7bb9 100644
 +long sys_cx_close(int cx_sel);
 +long sys_context_restore(void);
 +long sys_context_save(void);
++// long sys_cx_first_use(void);
++
  #endif
 diff --git a/include/uapi/asm-generic/unistd.h b/include/uapi/asm-generic/unistd.h
-index 756b013fb832..473954d318f1 100644
+index 756b013fb832..8669c72d59e2 100644
 --- a/include/uapi/asm-generic/unistd.h
 +++ b/include/uapi/asm-generic/unistd.h
-@@ -828,9 +828,19 @@ __SYSCALL(__NR_futex_wake, sys_futex_wake)
+@@ -828,9 +828,21 @@ __SYSCALL(__NR_futex_wake, sys_futex_wake)
  __SYSCALL(__NR_futex_wait, sys_futex_wait)
  #define __NR_futex_requeue 456
  __SYSCALL(__NR_futex_requeue, sys_futex_requeue)
@@ -112,10 +181,12 @@ index 756b013fb832..473954d318f1 100644
 +__SYSCALL(__NR_context_save, sys_context_save)
 +#define __NR_context_restore 461
 +__SYSCALL(__NR_context_restore, sys_context_restore)
++#define __NR_do_nothing 462
++__SYSCALL(__NR_do_nothing, sys_do_nothing)
  
  #undef __NR_syscalls
 -#define __NR_syscalls 457
-+#define __NR_syscalls 462
++#define __NR_syscalls 463
  
  /*
   * 32 bit systems traditionally used different
