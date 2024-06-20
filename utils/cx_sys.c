@@ -540,20 +540,22 @@ SYSCALL_DEFINE0(do_nothing)
 {       
 
         // Save the current state index
-        uint prev_cx_index = cx_csr_read(CX_INDEX);
+        uint cx_index_A = cx_csr_read(CX_INDEX);
 
         // Update the mcx_table to clear cxe bit for current selector
         // This needs to be early in the case that we double trap, which we will when we do as soon
         // as we execute the following CX_READ_STATUS.
-        uint cx_sel = current->mcx_table[prev_cx_index];
-        cx_sel &= ~(1 << (CX_CXE_START_INDEX));
-        current->mcx_table[prev_cx_index] = cx_sel;
+        uint cx_sel_A = current->mcx_table[cx_index_A];
+        cx_sel_A &= ~(1 << (CX_CXE_START_INDEX));
+        current->mcx_table[cx_index_A] = cx_sel_A;
 
-        csr_write(MCX_SELECTOR, cx_sel);
+        csr_write(MCX_SELECTOR, cx_sel_A);
 
-        cx_stctxs_t prev_cx_stctxs = {.idx = CX_READ_STATUS()};
+        // Because we're trapping on first use, the status we read does not belong to the
+        // cx_index, but rather the index with the cxe == 0 bit in the mcx_table.
+        cx_stctxs_t cx_stctxs_B = {.idx = CX_READ_STATUS()};
 
-        cx_selidx_t prev_cx_selidx = {.idx = current->mcx_table[prev_cx_index]};
+        cx_selidx_t cx_selidx_A = {.idx = current->mcx_table[cx_index_A]};
 
         for (int i = 1; i < CX_SEL_TABLE_NUM_ENTRIES; i++) {
                 
@@ -562,14 +564,14 @@ SYSCALL_DEFINE0(do_nothing)
                 }
                 // Because we've already updated the mcx_table, don't restore
                 // the state info of the current state.
-                if (i == prev_cx_index) {
+                if (i == cx_index_A) {
                         continue;
                 }
-                cx_selidx_t cx_selidx = {.idx = current->mcx_table[i]};
+                cx_selidx_t cx_selidx_B = {.idx = current->mcx_table[i]};
 
                 // Virtualize same state / cx_id only
-                if (!(cx_selidx.sel.cx_id == prev_cx_selidx.sel.cx_id && 
-                    cx_selidx.sel.state_id == prev_cx_selidx.sel.state_id)) {
+                if (!(cx_selidx_B.sel.cx_id == cx_selidx_A.sel.cx_id && 
+                    cx_selidx_B.sel.state_id == cx_selidx_A.sel.state_id)) {
                         continue;
                 }
 
@@ -585,25 +587,25 @@ SYSCALL_DEFINE0(do_nothing)
                         cx_csr_write(CX_INDEX, i);
 
                         // Storing status word + setting to clean
-                        prev_cx_stctxs.sel.cs = CLEAN;
-                        current->cx_os_state_table[i].ctx_status = prev_cx_stctxs.idx;
+                        cx_stctxs_B.sel.cs = CLEAN;
+                        current->cx_os_state_table[i].ctx_status = cx_stctxs_B.idx;
 
                         // Update the mcx_table to set cxe bit from prev selector
-                        uint prev_cx_sel = current->mcx_table[i];
-                        prev_cx_sel |= (1 << (CX_CXE_START_INDEX));
-                        current->mcx_table[i] = prev_cx_sel;
+                        uint cx_sel_B = current->mcx_table[i];
+                        cx_sel_B |= (1 << (CX_CXE_START_INDEX));
+                        current->mcx_table[i] = cx_sel_B;
 
                         // Storing state
-                        copy_state_to_os( prev_cx_stctxs.sel.state_size, i );
+                        copy_state_to_os( cx_stctxs_B.sel.state_size, i );
 
                         // Restore current correct state index
-                        cx_csr_write_index(prev_cx_index);
+                        cx_csr_write_index(cx_index_A);
 
                         // Restore state information + Update state context status information
                         // Only if this data has been saved before e.g., if we aren't coming from a cx_open
-                        if (GET_CX_STATUS(current->cx_os_state_table[prev_cx_index].ctx_status) > OFF) {
-                                copy_state_from_os( prev_cx_index );
-                                CX_WRITE_STATUS( current->cx_os_state_table[prev_cx_index].ctx_status );
+                        if (GET_CX_STATUS(current->cx_os_state_table[cx_index_A].ctx_status) > OFF) {
+                                copy_state_from_os( cx_index_A );
+                                CX_WRITE_STATUS( current->cx_os_state_table[cx_index_A].ctx_status );
                         }
                         break;
                 }
