@@ -419,6 +419,9 @@ SYSCALL_DEFINE1(cx_close, int, cx_sel)
 
                 // Free from the OS
                 kfree(current->cx_os_state_table[cx_sel].data);
+                current->cx_os_state_table[cx_sel].size = 0;
+                current->cx_os_state_table[cx_sel].ctx_status = 0;
+                current->cx_os_state_table[cx_sel].ctx_status = 0;
                 BUG_ON( current->cx_map[cx_id].counter[state_id] < 0 );
 
                 // let the state be used again
@@ -483,8 +486,9 @@ SYSCALL_DEFINE0(context_save)
                         // save the state context status
                         current->cx_os_state_table[i].ctx_status = cx_status;
 
+                        cx_stctxs_t cx_stctx = {.idx = cx_status};
                         // save the new size
-                        current->cx_os_state_table[i].size = 1;
+                        current->cx_os_state_table[i].size = cx_stctx.sel.state_size;
                 }
         }
 
@@ -548,13 +552,8 @@ SYSCALL_DEFINE0(do_nothing)
         csr_write(MCX_SELECTOR, cx_sel);
 
         cx_stctxs_t prev_cx_stctxs = {.idx = CX_READ_STATUS()};
-        uint prev_cx_cs = GET_CX_STATUS(prev_cx_stctxs.idx);
 
         cx_selidx_t prev_cx_selidx = {.idx = current->mcx_table[prev_cx_index]};
-
-        // if (prev_cx_cs == CLEAN || prev_cx_cs == OFF) {
-        //         return 0;
-        // }
 
         for (int i = 1; i < CX_SEL_TABLE_NUM_ENTRIES; i++) {
                 
@@ -600,11 +599,12 @@ SYSCALL_DEFINE0(do_nothing)
                         // Restore current correct state index
                         cx_csr_write_index(prev_cx_index);
 
-                        // Restore state information
-                        copy_state_from_os( prev_cx_index );
-
-                        // Update state context status information
-                        CX_WRITE_STATUS( current->cx_os_state_table[prev_cx_index].ctx_status );
+                        // Restore state information + Update state context status information
+                        // Only if this data has been saved before e.g., if we aren't coming from a cx_open
+                        if (GET_CX_STATUS(current->cx_os_state_table[prev_cx_index].ctx_status) > OFF) {
+                                copy_state_from_os( prev_cx_index );
+                                CX_WRITE_STATUS( current->cx_os_state_table[prev_cx_index].ctx_status );
+                        }
                         break;
                 }
         }
