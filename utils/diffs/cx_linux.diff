@@ -21,7 +21,7 @@ index 36b955c762ba..637cd642e6cc 100644
  asmlinkage void handle_bad_stack(struct pt_regs *regs);
  asmlinkage void do_page_fault(struct pt_regs *regs);
 diff --git a/arch/riscv/kernel/traps.c b/arch/riscv/kernel/traps.c
-index a1b9be3c4332..3a3deadea0d6 100644
+index a1b9be3c4332..fbf3d4680573 100644
 --- a/arch/riscv/kernel/traps.c
 +++ b/arch/riscv/kernel/traps.c
 @@ -32,6 +32,8 @@
@@ -56,7 +56,7 @@ index a1b9be3c4332..3a3deadea0d6 100644
  
  	if (user_mode(regs)) {
  		irqentry_enter_from_user_mode(regs);
-@@ -339,6 +348,24 @@ asmlinkage __visible __trap_section void do_trap_ecall_u(struct pt_regs *regs)
+@@ -339,6 +348,23 @@ asmlinkage __visible __trap_section void do_trap_ecall_u(struct pt_regs *regs)
  
  }
  
@@ -65,7 +65,6 @@ index a1b9be3c4332..3a3deadea0d6 100644
 +{
 +	long syscall = 462;
 +
-+	regs->epc += 4;
 +	regs->orig_a0 = regs->a0;
 +
 +	riscv_v_vstate_discard(regs);

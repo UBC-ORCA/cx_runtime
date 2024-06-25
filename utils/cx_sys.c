@@ -335,7 +335,7 @@ SYSCALL_DEFINE2(cx_open, int, cx_guid, int, cx_share)
                 }
                 
                 // 3. Update cx_index to the new value
-                cx_csr_write_index(cx_index);
+                cx_csr_write( CX_INDEX, cx_index );
 
                 // 4 + 5
                 uint status = CX_READ_STATUS();
@@ -351,17 +351,8 @@ SYSCALL_DEFINE2(cx_open, int, cx_guid, int, cx_share)
                 current->cx_os_state_table[cx_index].share = GET_SHARE_TYPE(cx_share);
                 current->cx_os_state_table[cx_index].size = GET_CX_STATE_SIZE(status);
 
-                // 7. Write the previous selector value back to cx_index
-                // TODO (Brandon): We don't do a nop cx_reg here because we don't want to trap
-                // and cause undefined behavior if we have legacy or invalid selector. However,
-                // we need to trap otherwise: if we have a valid cx_sel, it needs to be 
-                // restored and a no-op issued or else the first cx_reg after this cx_open
-                // won't be correct. Rd won't be updated.
-                if (prev_sel_index == CX_LEGACY || current->mcx_table[prev_sel_index] == CX_INVALID_SELECTOR) {
-                        cx_csr_write(CX_INDEX, prev_sel_index);
-                } else {
-                        cx_csr_write_index(prev_sel_index);
-                }
+                // 7. write the previous selector
+                cx_csr_write(CX_INDEX, prev_sel_index);
         }
 
         return cx_index;
@@ -463,7 +454,7 @@ SYSCALL_DEFINE0(context_save)
                 if (current->mcx_table[i] != CX_INVALID_SELECTOR) {
 
                         // write the index to be saved
-                        cx_csr_write_index(i);
+                        cx_csr_write(CX_INDEX, i);
                         
                         uint cx_status = CX_READ_STATUS();
 
@@ -496,7 +487,7 @@ SYSCALL_DEFINE0(context_save)
 
         current->cx_status = cx_error;
 
-        cx_csr_write_index(current->cx_index);
+        cx_csr_write(CX_INDEX, current->cx_index);
 
         return 0;
 }
@@ -518,7 +509,7 @@ SYSCALL_DEFINE0(context_restore)
                 if (current->mcx_table[i] != CX_INVALID_SELECTOR) {
 
                         // Write the index to be restored
-                        cx_csr_write_index( i );
+                        cx_csr_write( CX_INDEX,  i );
                         
                         // Restore state
                         copy_state_from_os( i );
@@ -531,7 +522,7 @@ SYSCALL_DEFINE0(context_restore)
         }
 
         // 4. Restore index
-        cx_csr_write_index(current->cx_index);
+        cx_csr_write( CX_INDEX, current->cx_index );
 
         return 0;
 }
@@ -599,7 +590,7 @@ SYSCALL_DEFINE0(do_nothing)
                         copy_state_to_os( cx_stctxs_B.sel.state_size, i );
 
                         // Restore current correct state index
-                        cx_csr_write_index(cx_index_A);
+                        cx_csr_write( CX_INDEX, cx_index_A );
 
                         // Restore state information + Update state context status information
                         // Only if this data has been saved before e.g., if we aren't coming from a cx_open

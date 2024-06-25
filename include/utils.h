@@ -207,18 +207,6 @@ enum SHARE_TYPE {
 			      : "memory");			                \
 })
 
-// TODO (Brandon): Fix this.
-// This is here because of an issue with qemu. There is no way (that I've found)
-// to both trigger a trap with a cx_{reg, imm, flex} instruction AND have it return
-// a value. I've made this (1023) as a nop that triggers the trap, so that when
-// the first useful cx_{} instruction is invoked, the proper instruction will be
-// executed and correct value returned.
-#define cx_csr_write_index(val)             \
-    ({                                      \
-        cx_csr_write(CX_INDEX, val);        \
-        CX_REG_HELPER(0, 0, 0);             \
-    })
-
 #define CX_WRITE_STATE(index, value)  ({                   \
     asm volatile("      cx_reg 1020, zero,%0,%1;\n\t"      \
                  :                                         \
