@@ -2,8 +2,6 @@
 
 :x: Move static part of cx_map in a device struct, similar to a PCIe device
 
-:x: Trap on first use of cx_{imm, reg, flex} for virtualization of threads, allowing state sharing via loading / storing to / from memory
-
 :x: Fix builds
 
 :x: Raise mtval CSR when we have an invalid cx_selector
@@ -30,6 +28,8 @@
     should it be a part of `cx_close();`?
 
 # Completed objectives
+
+:white_check_mark: Trap on first use of cx_{imm, reg, flex} for virtualization of threads, allowing state sharing via loading / storing to / from memory
 
 :white_check_mark: Have tests for m_mode ci.h (ci_m.h)
 

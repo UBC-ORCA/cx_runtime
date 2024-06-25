@@ -22,7 +22,7 @@
 
 :white_check_mark: an ABI allowing proper CXU selection across function calls and library boundaries
 
-:x: produce a set of ABI rules and implement by example.
+:white_check_mark: produce a set of ABI rules and implement by example.
 
 :white_check_mark: intrinsics or assembly-level changes to allow arbitrary CXU custom instructions to be generated and disassembled
 
@@ -34,7 +34,7 @@
 
 :x: application fallback/recovery from errors such as missing CXU, illegal CXU instructions, etc
 
-:x: supports virtualization of states
+:white_check_mark: supports virtualization of states
 
 :x: supports context switching
 
