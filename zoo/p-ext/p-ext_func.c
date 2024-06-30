@@ -1,5 +1,4 @@
 #include <stdint.h>
-#include <stdio.h>
 
 #include "p-ext_func.h"
 
@@ -46,7 +45,7 @@ static inline i32 sra16_func(i32 a, i32 sa, int32_t state_id)
     i16 rs1_h;
     for (int i = 0; i < (XLEN / 16); i++) {
         rs1_h = GET_BITS(a, i * 16, 16);
-        sa &= 0x000000FF; // get lower 8 bits
+        sa &= 0xFF; // get lower 8 bits
         i16 res = rs1_h >> sa;
         result |= (res << i * 16) & mask;
         mask <<= 16;
@@ -89,7 +88,7 @@ static inline i32 sra8_func(i32 a, i32 sa, int32_t state_id)
     i8 rs1_h;
     for (int i = 0; i < (XLEN / 8); i++) {
         rs1_h = GET_BITS(a, i * 8, 8);
-        sa &= 0x0000000F; // get lower 4 bits
+        sa &= 0xF; // get lower 4 bits
         i8 res = rs1_h >> sa;
         result |= (res << i * 8) & mask;
         mask <<= 8;
