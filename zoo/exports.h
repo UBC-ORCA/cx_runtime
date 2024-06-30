@@ -7,6 +7,8 @@
 #include "addsub/addsub_func.h"
 #include "muldiv/muldiv_func.h"
 #include "mulacc/mulacc_func.h"
+#include "p-ext/p-ext_func.h"
+
 
 #define CX_ERROR_NUM_FUNCS 0
 

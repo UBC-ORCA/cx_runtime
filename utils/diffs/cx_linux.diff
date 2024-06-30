@@ -81,7 +81,7 @@ index a1b9be3c4332..fbf3d4680573 100644
  asmlinkage __visible noinstr void do_page_fault(struct pt_regs *regs)
  {
 diff --git a/include/linux/sched.h b/include/linux/sched.h
-index 292c31697248..d0b7d66d8eb8 100644
+index 292c31697248..fef4db737933 100644
 --- a/include/linux/sched.h
 +++ b/include/linux/sched.h
 @@ -39,6 +39,8 @@
@@ -97,7 +97,7 @@ index 292c31697248..d0b7d66d8eb8 100644
  #endif
  };
  
-+#define NUM_CX 3
++#define NUM_CX 4
 +
 +typedef uint cx_stare_t;
 +
