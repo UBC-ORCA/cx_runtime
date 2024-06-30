@@ -23,7 +23,7 @@
 
 #define MAX_CF_IDS 1024
 #define MAX_CX_ID 255
-#define NUM_CX 3
+#define NUM_CX 4
 
 #define MAX_CXU_ID 1 << CX_ID_BITS
 #define MAX_STATE_ID 1 << STATE_ID_BITS

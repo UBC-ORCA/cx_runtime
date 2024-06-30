@@ -1,0 +1,8 @@
+#ifndef PEXT_COMMON_H
+#define PEXT_COMMON_H
+
+#define CX_GUID_PEXT 5
+#define CX_PEXT_NUM_FUNCS 6
+#define CX_PEXT_NUM_STATES 0
+
+#endif // PEXT_COMMON_H

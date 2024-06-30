@@ -9,6 +9,7 @@
 #include "../../../../research/riscv-tools/cx_runtime/zoo/mulacc/mulacc_common.h"
 #include "../../../../research/riscv-tools/cx_runtime/zoo/muldiv/muldiv_common.h"
 #include "../../../../research/riscv-tools/cx_runtime/zoo/addsub/addsub_common.h"
+#include "../../../../research/riscv-tools/cx_runtime/zoo/p-ext/p-ext_common.h"
 
 #define CX_SEL_TABLE_NUM_ENTRIES 1024
 
@@ -209,10 +210,14 @@ SYSCALL_DEFINE0(cx_init)
         current->cx_map[0].cx_guid = CX_GUID_MULDIV;
         current->cx_map[1].cx_guid = CX_GUID_ADDSUB;
         current->cx_map[2].cx_guid = CX_GUID_MULACC;
+        current->cx_map[3].cx_guid = CX_GUID_PEXT;
+
 
         current->cx_map[0].num_states = CX_MULDIV_NUM_STATES;
         current->cx_map[1].num_states = CX_ADDSUB_NUM_STATES;
         current->cx_map[2].num_states = CX_MULACC_NUM_STATES;
+        current->cx_map[3].num_states = CX_PEXT_NUM_STATES;
+
         
         int32_t num_states = -1;
 
