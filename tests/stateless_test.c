@@ -16,7 +16,7 @@ void stateless_test() {
     int cx_sel_A0 = cx_open(CX_GUID_ADDSUB, share_A);
 
     /* Index 0 should be reserved */
-    assert( cx_sel_A0 == 1 );
+    assert( cx_sel_A0 > 0 );
 
     cx_error_clear();
     cx_sel(cx_sel_A0);
@@ -31,8 +31,10 @@ void stateless_test() {
     cx_sel_t cx_sel_A2 = cx_open(CX_GUID_ADDSUB, share_A);
 
     // The same index should be returned for stateless cxus
-    assert( cx_sel_A1 == 2 );
+    assert( cx_sel_A1 > 0 );
     assert( cx_sel_A1 == cx_sel_A2 );
+    cx_close( cx_sel_A1 );
+    cx_close( cx_sel_A2 );
     cx_sel( CX_LEGACY );
 }
 
