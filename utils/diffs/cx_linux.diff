@@ -21,7 +21,7 @@ index 36b955c762ba..637cd642e6cc 100644
  asmlinkage void handle_bad_stack(struct pt_regs *regs);
  asmlinkage void do_page_fault(struct pt_regs *regs);
 diff --git a/arch/riscv/kernel/traps.c b/arch/riscv/kernel/traps.c
-index a1b9be3c4332..fbf3d4680573 100644
+index a1b9be3c4332..ba8aa9062863 100644
 --- a/arch/riscv/kernel/traps.c
 +++ b/arch/riscv/kernel/traps.c
 @@ -32,6 +32,8 @@
@@ -63,7 +63,7 @@ index a1b9be3c4332..fbf3d4680573 100644
 +/* TODO (cx, Brandon): This is incredibly hacky - Used for virtualization of state. */
 +asmlinkage __visible __trap_section void do_trap_first_cx_use(struct pt_regs *regs)
 +{
-+	long syscall = 462;
++	long syscall = 461;
 +
 +	regs->orig_a0 = regs->a0;
 +
@@ -81,7 +81,7 @@ index a1b9be3c4332..fbf3d4680573 100644
  asmlinkage __visible noinstr void do_page_fault(struct pt_regs *regs)
  {
 diff --git a/include/linux/sched.h b/include/linux/sched.h
-index 292c31697248..fef4db737933 100644
+index 292c31697248..5d0f704ecd27 100644
 --- a/include/linux/sched.h
 +++ b/include/linux/sched.h
 @@ -39,6 +39,8 @@
@@ -93,12 +93,10 @@ index 292c31697248..fef4db737933 100644
  /* task_struct member predeclarations (sorted alphabetically): */
  struct audit_context;
  struct bio_list;
-@@ -743,6 +745,34 @@ struct kmap_ctrl {
+@@ -743,6 +745,26 @@ struct kmap_ctrl {
  #endif
  };
  
-+#define NUM_CX 4
-+
 +typedef uint cx_stare_t;
 +
 +typedef struct {
@@ -119,16 +117,10 @@ index 292c31697248..fef4db737933 100644
 +  queue_t *avail_state_ids;
 +} cx_entry_t;
 +
-+// typedef struct {
-+//   queue_t *avail_state_ids;
-+// } cxu_state_info_t;
-+
-+// struct cx_entry_t* cx_map_t;
-+
  struct task_struct {
  #ifdef CONFIG_THREAD_INFO_IN_TASK
  	/*
-@@ -1544,6 +1574,16 @@ struct task_struct {
+@@ -1544,6 +1566,16 @@ struct task_struct {
  	struct user_event_mm		*user_event_mm;
  #endif
  
@@ -140,21 +132,20 @@ index 292c31697248..fef4db737933 100644
 +	queue_t *cx_table_avail_indices;
 +	
 +	// TODO: This shouldn't be here - should be in the device_struct.
-+	cx_entry_t cx_map[NUM_CX];
++	// cx_entry_t cx_map[NUM_CX];
 +
  	/*
  	 * New fields for task_struct should be added above here, so that
  	 * they are included in the randomized portion of task_struct.
 diff --git a/include/linux/syscalls.h b/include/linux/syscalls.h
-index fd9d12de7e92..8d9a729d0366 100644
+index fd9d12de7e92..816568a24017 100644
 --- a/include/linux/syscalls.h
 +++ b/include/linux/syscalls.h
-@@ -1279,4 +1279,12 @@ int __sys_getsockopt(int fd, int level, int optname, char __user *optval,
+@@ -1279,4 +1279,11 @@ int __sys_getsockopt(int fd, int level, int optname, char __user *optval,
  		int __user *optlen);
  int __sys_setsockopt(int fd, int level, int optname, char __user *optval,
  		int optlen);
 +
-+void sys_cx_init(void);
 +long sys_cx_open(int cx_guid);
 +long sys_cx_close(int cx_sel);
 +long sys_context_restore(void);
@@ -163,32 +154,174 @@ index fd9d12de7e92..8d9a729d0366 100644
 +
  #endif
 diff --git a/include/uapi/asm-generic/unistd.h b/include/uapi/asm-generic/unistd.h
-index 756b013fb832..8669c72d59e2 100644
+index 756b013fb832..81e95ed4d5b2 100644
 --- a/include/uapi/asm-generic/unistd.h
 +++ b/include/uapi/asm-generic/unistd.h
-@@ -828,9 +828,21 @@ __SYSCALL(__NR_futex_wake, sys_futex_wake)
+@@ -828,9 +828,19 @@ __SYSCALL(__NR_futex_wake, sys_futex_wake)
  __SYSCALL(__NR_futex_wait, sys_futex_wait)
  #define __NR_futex_requeue 456
  __SYSCALL(__NR_futex_requeue, sys_futex_requeue)
 +#define __NR_cx_open 457
 +__SYSCALL(__NR_cx_open, sys_cx_open)
-+#define __NR_cx_init 458
-+__SYSCALL(__NR_cx_init, sys_cx_init)
-+#define __NR_cx_close 459
++#define __NR_cx_close 458
 +__SYSCALL(__NR_cx_close, sys_cx_close)
-+#define __NR_context_save 460
++#define __NR_context_save 459
 +__SYSCALL(__NR_context_save, sys_context_save)
-+#define __NR_context_restore 461
++#define __NR_context_restore 460
 +__SYSCALL(__NR_context_restore, sys_context_restore)
-+#define __NR_do_nothing 462
++#define __NR_do_nothing 461
 +__SYSCALL(__NR_do_nothing, sys_do_nothing)
  
  #undef __NR_syscalls
 -#define __NR_syscalls 457
-+#define __NR_syscalls 463
++#define __NR_syscalls 462
  
  /*
   * 32 bit systems traditionally used different
+diff --git a/init/init_task.c b/init/init_task.c
+index 5727d42149c3..100c662effbe 100644
+--- a/init/init_task.c
++++ b/init/init_task.c
+@@ -213,6 +213,10 @@ struct task_struct init_task
+ };
+ EXPORT_SYMBOL(init_task);
+ 
++#define NUM_CX 4
++cx_entry_t cx_map[NUM_CX];
++EXPORT_SYMBOL(cx_map);
++
+ /*
+  * Initial thread structure. Alignment of this is handled by a special
+  * linker map entry.
+diff --git a/init/main.c b/init/main.c
+index e24b0780fdff..32bb5ba4b736 100644
+--- a/init/main.c
++++ b/init/main.c
+@@ -111,6 +111,85 @@
+ 
+ #include <kunit/test.h>
+ 
++#include "../../../../research/riscv-tools/cx_runtime/include/utils.h"
++#include "../../../../research/riscv-tools/cx_runtime/zoo/mulacc/mulacc_common.h"
++#include "../../../../research/riscv-tools/cx_runtime/zoo/muldiv/muldiv_common.h"
++#include "../../../../research/riscv-tools/cx_runtime/zoo/addsub/addsub_common.h"
++#include "../../../../research/riscv-tools/cx_runtime/zoo/p-ext/p-ext_common.h"
++
++extern cx_entry_t cx_map[NUM_CX];
++
++int cx_init(void) {
++        pr_info("Ran in part of main\n");
++        current->mcx_table = kzalloc(sizeof(int) * CX_SEL_TABLE_NUM_ENTRIES, GFP_KERNEL);
++        if (!current->mcx_table) {
++                // some sort of allocation error here
++                return -1;
++        }
++        current->cx_os_state_table = (cx_os_state_t *)kzalloc(sizeof(cx_os_state_t) * CX_SEL_TABLE_NUM_ENTRIES, GFP_KERNEL);
++        if (!current->cx_os_state_table) {
++                // some sort of allocation error here
++                return -1;
++        }
++
++        // TODO: Check for successful allocation
++        current->cx_table_avail_indices = make_queue(CX_SEL_TABLE_NUM_ENTRIES);
++
++        // 1st slot in table is canonical legacy value
++        current->mcx_table[0] = CX_LEGACY;
++        dequeue(current->cx_table_avail_indices);
++
++        for (int i = 1; i < CX_SEL_TABLE_NUM_ENTRIES; i++) {
++                current->mcx_table[i] = CX_INVALID_SELECTOR;
++        }
++
++        // Update the mcx_table csr with the mcx_table address
++        csr_write(MCX_TABLE, &current->mcx_table[0]);
++
++        // 0 initialize the cx_index table csr
++        cx_csr_write(CX_INDEX, 0);
++
++        // 0 initialize the mcx_selector csr
++        csr_write(MCX_SELECTOR, 0);
++
++        // 0 initialize the cx_status csr
++        csr_write(CX_STATUS, 0);
++        
++        cx_map[0].cx_guid = CX_GUID_MULDIV;
++        cx_map[1].cx_guid = CX_GUID_ADDSUB;
++        cx_map[2].cx_guid = CX_GUID_MULACC;
++        cx_map[3].cx_guid = CX_GUID_PEXT;
++
++        cx_map[0].num_states = CX_MULDIV_NUM_STATES;
++        cx_map[1].num_states = CX_ADDSUB_NUM_STATES;
++        cx_map[2].num_states = CX_MULACC_NUM_STATES;
++        cx_map[3].num_states = CX_PEXT_NUM_STATES;
++
++        int32_t num_states = -1;
++
++        for (int i = 0; i < NUM_CX; i++) {
++
++                num_states = cx_map[i].num_states;
++
++                // stateless cxu
++                if (num_states == 0) {
++                        cx_map[i].index = kzalloc(sizeof(int) * 1, GFP_KERNEL);
++                        cx_map[i].counter = kzalloc(sizeof(int) * 1, GFP_KERNEL);
++
++                        cx_map[i].index[0] = -1;
++                }
++                // stateful cxu
++                else {
++                        // cx_map[i].index = kzalloc(sizeof(int) * 1, GFP_KERNEL);
++                        cx_map[i].counter = kzalloc(sizeof(int) * num_states, GFP_KERNEL);
++                        cx_map[i].avail_state_ids = make_queue(num_states);
++                }
++        }
++
++        return 0;
++}
++
++
+ static int kernel_init(void *);
+ 
+ /*
+@@ -670,6 +749,7 @@ static void __init setup_command_line(char *command_line)
+ 	saved_command_line_len = strlen(saved_command_line);
+ }
+ 
++
+ /*
+  * We need to finalize in a non-__init function or else race conditions
+  * between the root thread and the init thread may cause start_kernel to
+@@ -692,7 +772,9 @@ noinline void __ref __noreturn rest_init(void)
+ 	 * the init task will end up wanting to create kthreads, which, if
+ 	 * we schedule it before we create kthreadd, will OOPS.
+ 	 */
++	pr_info("before pid thing\n");
+ 	pid = user_mode_thread(kernel_init, NULL, CLONE_FS);
++
+ 	/*
+ 	 * Pin init on the boot CPU. Task migration is not properly working
+ 	 * until sched_init_smp() has been run. It will set the allowed
+@@ -727,7 +809,9 @@ noinline void __ref __noreturn rest_init(void)
+ 	 */
+ 	schedule_preempt_disabled();
+ 	/* Call into cpu_idle with preempt disabled */
++
+ 	cpu_startup_entry(CPUHP_ONLINE);
++
+ }
+ 
+ /* Check for early params. */
+@@ -1462,9 +1546,9 @@ static int __ref kernel_init(void *unused)
+ 	rcu_end_inkernel_boot();
+ 
+ 	do_sysctl_args();
+-
+ 	if (ramdisk_execute_command) {
+ 		ret = run_init_process(ramdisk_execute_command);
++		cx_init();
+ 		if (!ret)
+ 			return 0;
+ 		pr_err("Failed to execute %s (error %d)\n",
 diff --git a/lib/Makefile b/lib/Makefile
 index 6b09731d8e61..a1f08d1ea3bf 100644
 --- a/lib/Makefile

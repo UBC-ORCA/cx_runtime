@@ -4,6 +4,9 @@
 #include <linux/kernel.h>
 #include <linux/sched.h>
 #include <linux/syscalls.h>
+#include <linux/module.h>
+
+#include <linux/list.h>
 
 #include "../../../../research/riscv-tools/cx_runtime/include/utils.h"
 #include "../../../../research/riscv-tools/cx_runtime/zoo/mulacc/mulacc_common.h"
@@ -21,6 +24,8 @@ typedef int cx_id_t;
 typedef int cx_sel_t;
 typedef int state_id_t;
 
+extern cx_entry_t cx_map[NUM_CX];
+
 static inline cx_sel_t gen_cx_sel(cx_id_t cx_id, state_id_t state_id, uint cxe,
                                   int32_t cx_version) 
 {
@@ -32,7 +37,7 @@ static inline cx_sel_t gen_cx_sel(cx_id_t cx_id, state_id_t state_id, uint cxe,
 }
 
 static int get_free_state(int cx_id) {
-        int state_id = front(current->cx_map[cx_id].avail_state_ids);
+        int state_id = front(cx_map[cx_id].avail_state_ids);
         if (state_id >= 0) {
                 return state_id;
         }
@@ -41,13 +46,13 @@ static int get_free_state(int cx_id) {
 
 static int is_valid_counter(cx_id_t cx_id) 
 {
-    int32_t counter = current->cx_map[cx_id].counter[0];
+    int32_t counter = cx_map[cx_id].counter[0];
     // stateless
     if (/* counter == INT32_MAX || */ counter < 0) {
         return false;
     
     // stateful + counter out of range
-    } else if (current->cx_map[cx_id].num_states > 0 && counter >= current->cx_map[cx_id].num_states) {
+    } else if (cx_map[cx_id].num_states > 0 && counter >= cx_map[cx_id].num_states) {
         return false;
     }
     return true;
@@ -77,7 +82,7 @@ static int is_valid_state_id(cx_id_t cx_id, state_id_t state_id)
 {
     if (state_id < 0) {
         return false; // No available states for cx_guid 
-    } else if (state_id > current->cx_map[cx_id].num_states - 1) {
+    } else if (state_id > cx_map[cx_id].num_states - 1) {
         return false;
     }
     return true;
@@ -168,82 +173,6 @@ static void copy_state_from_os( uint index )
 }
 
 /*
-* Initializes the cx_map, cx_table, and sets the CX_INDEX, MCX_SELECTOR, and CX_STATUS CSRs 
-* to their initial values (0).
-*/
-SYSCALL_DEFINE0(cx_init)
-{
-        current->mcx_table = kzalloc(sizeof(int) * CX_SEL_TABLE_NUM_ENTRIES, GFP_KERNEL);
-        if (!current->mcx_table) {
-                // some sort of allocation error here
-                return -1;
-        }
-        current->cx_os_state_table = (cx_os_state_t *)kzalloc(sizeof(cx_os_state_t) * CX_SEL_TABLE_NUM_ENTRIES, GFP_KERNEL);
-        if (!current->cx_os_state_table) {
-                // some sort of allocation error here
-                return -1;
-        }
-
-        // TODO: Check for successful allocation
-        current->cx_table_avail_indices = make_queue(CX_SEL_TABLE_NUM_ENTRIES);
-
-        // 1st slot in table is canonical legacy value
-        current->mcx_table[0] = CX_LEGACY;
-        dequeue(current->cx_table_avail_indices);
-
-        for (int i = 1; i < CX_SEL_TABLE_NUM_ENTRIES; i++) {
-                current->mcx_table[i] = CX_INVALID_SELECTOR;
-        }
-
-        // Update the mcx_table csr with the mcx_table address
-        csr_write(MCX_TABLE, &current->mcx_table[0]);
-
-        // 0 initialize the cx_index table csr
-        cx_csr_write(CX_INDEX, 0);
-
-        // 0 initialize the mcx_selector csr
-        csr_write(MCX_SELECTOR, 0);
-
-        // 0 initialize the cx_status csr
-        csr_write(CX_STATUS, 0);
-        
-        current->cx_map[0].cx_guid = CX_GUID_MULDIV;
-        current->cx_map[1].cx_guid = CX_GUID_ADDSUB;
-        current->cx_map[2].cx_guid = CX_GUID_MULACC;
-        current->cx_map[3].cx_guid = CX_GUID_PEXT;
-
-
-        current->cx_map[0].num_states = CX_MULDIV_NUM_STATES;
-        current->cx_map[1].num_states = CX_ADDSUB_NUM_STATES;
-        current->cx_map[2].num_states = CX_MULACC_NUM_STATES;
-        current->cx_map[3].num_states = CX_PEXT_NUM_STATES;
-
-        
-        int32_t num_states = -1;
-
-        for (int i = 0; i < NUM_CX; i++) {
-
-                num_states = current->cx_map[i].num_states;
-
-                // stateless cxu
-                if (num_states == 0) {
-                        current->cx_map[i].index = kzalloc(sizeof(int) * 1, GFP_KERNEL);
-                        current->cx_map[i].counter = kzalloc(sizeof(int) * 1, GFP_KERNEL);
-
-                        current->cx_map[i].index[0] = -1;
-                }
-                // stateful cxu
-                else {
-                        // current->cx_map[i].index = kzalloc(sizeof(int) * 1, GFP_KERNEL);
-                        current->cx_map[i].counter = kzalloc(sizeof(int) * num_states, GFP_KERNEL);
-                        current->cx_map[i].avail_state_ids = make_queue(num_states);
-                }
-        }
-
-        return 0;
-}
-
-/*
 * Allocates an index on the mcx_table.
 * Stateless cxs: in the case there is already an index allocated, increment the counter and 
 *                return the cx_index. Otherwise, allocate an index and increment the counter.
@@ -262,7 +191,7 @@ SYSCALL_DEFINE2(cx_open, int, cx_guid, int, cx_share)
         int cx_id = -1;
 
         for (int j = 0; j < NUM_CX; j++) {
-                if (current->cx_map[j].cx_guid == cx_guid) {
+                if (cx_map[j].cx_guid == cx_guid) {
                         cx_id = j;
                 }
         }
@@ -282,12 +211,12 @@ SYSCALL_DEFINE2(cx_open, int, cx_guid, int, cx_share)
         int cx_sel = -1;
 
         // stateless cx - checking if the value is in the cx sel table already
-        if (current->cx_map[cx_id].num_states == 0) {
-                current->cx_map[cx_id].counter[0]++;
-                if (current->cx_map[cx_id].index[0] > 0) {
-                        return current->cx_map[cx_id].index[0];
+        if (cx_map[cx_id].num_states == 0) {
+                cx_map[cx_id].counter[0]++;
+                if (cx_map[cx_id].index[0] > 0) {
+                        return cx_map[cx_id].index[0];
                 }
-                current->cx_map[cx_id].index[0] = cx_index;
+                cx_map[cx_id].index[0] = cx_index;
 
                 dequeue(current->cx_table_avail_indices);
                 cx_sel = gen_cx_sel(cx_id, 0, 0, CX_VERSION);
@@ -322,11 +251,11 @@ SYSCALL_DEFINE2(cx_open, int, cx_guid, int, cx_share)
                                 return -1; // No available states for cx_guid 
                         }
 
-                        dequeue(current->cx_map[cx_id].avail_state_ids);
+                        dequeue(cx_map[cx_id].avail_state_ids);
                 }
                 BUG_ON ( state_id < 0 );
                 dequeue(current->cx_table_avail_indices);
-                current->cx_map[cx_id].counter[state_id]++;
+                cx_map[cx_id].counter[state_id]++;
 
                 cx_sel = gen_cx_sel(cx_id, state_id, 1, CX_VERSION);
                 current->mcx_table[cx_index] = cx_sel;
@@ -397,7 +326,7 @@ SYSCALL_DEFINE1(cx_close, int, cx_sel)
         }
         #endif
         // Stateful cx's
-        if (current->cx_map[cx_id].num_states > 0) {
+        if (cx_map[cx_id].num_states > 0) {
                 state_id_t state_id = ((cx_selidx_t) ((uint)cx_sel_entry)).sel.state_id;
                 if (!is_valid_state_id(cx_id, state_id)) {
                         // errno = 139;
@@ -405,38 +334,38 @@ SYSCALL_DEFINE1(cx_close, int, cx_sel)
                 }
 
                 // keep track of number of open contexts for a given cx_guid
-                current->cx_map[cx_id].counter[state_id]--;
+                cx_map[cx_id].counter[state_id]--;
 
                 // clear the table
                 current->mcx_table[cx_sel] = CX_INVALID_SELECTOR;
 
                 // delete cx_sel_map_index from map
-                // current->cx_map[cx_id].cx_sel_map_index[state_id] = -1;
+                // cx_map[cx_id].cx_sel_map_index[state_id] = -1;
 
                 // Free from the OS
                 kfree(current->cx_os_state_table[cx_sel].data);
                 current->cx_os_state_table[cx_sel].size = 0;
                 current->cx_os_state_table[cx_sel].ctx_status = 0;
                 current->cx_os_state_table[cx_sel].ctx_status = 0;
-                BUG_ON( current->cx_map[cx_id].counter[state_id] < 0 );
+                BUG_ON( cx_map[cx_id].counter[state_id] < 0 );
 
                 // let the state be used again
-                if (current->cx_map[cx_id].counter[state_id] == 0) {
-                        enqueue(current->cx_map[cx_id].avail_state_ids, state_id);
+                if (cx_map[cx_id].counter[state_id] == 0) {
+                        enqueue(cx_map[cx_id].avail_state_ids, state_id);
                 }
                 enqueue(current->cx_table_avail_indices, cx_sel);
 
         // Stateless cx's
-        } else if (current->cx_map[cx_id].num_states == 0) {
+        } else if (cx_map[cx_id].num_states == 0) {
 
-                current->cx_map[cx_id].counter[0] -= 1;
+                cx_map[cx_id].counter[0] -= 1;
                 
                 // Don't clear the cx_selector_table entry unless the counter is at 0
-                if (current->cx_map[cx_id].counter[0] == 0) {
+                if (cx_map[cx_id].counter[0] == 0) {
                         current->mcx_table[cx_sel] = CX_INVALID_SELECTOR;
                         
-                        enqueue(current->cx_table_avail_indices, current->cx_map[cx_id].index[0]);
-                        current->cx_map[cx_id].index[0] = -1;
+                        enqueue(current->cx_table_avail_indices, cx_map[cx_id].index[0]);
+                        cx_map[cx_id].index[0] = -1;
                 }
         } else {
                 pr_info("made it to case that shouldn't happen\n");
@@ -572,7 +501,7 @@ SYSCALL_DEFINE0(do_nothing)
                 }
 
                 // Don't need to save and restore stateless cxs
-                if (current->cx_map[GET_CX_ID(current->mcx_table[i])].num_states == 0) {
+                if (cx_map[GET_CX_ID(current->mcx_table[i])].num_states == 0) {
                         continue;
                 }
 

@@ -40,7 +40,6 @@ void stateless_test() {
 
 int main() {
 
-    cx_init();
     cx_sel( CX_LEGACY );
     stateless_test();
     printf("stateless test passed\n");

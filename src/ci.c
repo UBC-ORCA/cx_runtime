@@ -33,7 +33,7 @@ void cx_close(cx_sel_t cx_sel)
 {
   int cx_close_error = -1;
   asm volatile (
-    "li a7, 459;        \n\t"  // syscall 459, cx_open
+    "li a7, 458;        \n\t"  // syscall 459, cx_open
     "mv a0, %0;         \n\t"  // a0-a5 are ecall args 
     "ecall;             \n\t"
     "mv %1, a0;         \n\t"
@@ -58,7 +58,7 @@ void cx_deselect_and_close(cx_sel_t cx_sel)
 
 void cx_context_save() {
   register long cx_index asm("a0");
-  register long syscall_id asm("a7") = 460; // cx_context_save
+  register long syscall_id asm("a7") = 459; // cx_context_save
   asm volatile ("ecall  # 0=%0"
     : 
     : "r"(syscall_id)
@@ -68,7 +68,7 @@ void cx_context_save() {
 
 void cx_context_restore() {
   register long cx_index asm("a0");
-  register long syscall_id asm("a7") = 461; // cx_context_restore
+  register long syscall_id asm("a7") = 460; // cx_context_restore
   asm volatile ("ecall  # 0=%0"
     : 
     : "r"(syscall_id)

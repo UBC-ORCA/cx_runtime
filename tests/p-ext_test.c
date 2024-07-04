@@ -88,7 +88,7 @@ void pext_test() {
     u32 result;
 
     cx_sel_t cx_sel_0 = cx_open( CX_GUID_PEXT, 0 );
-    assert(cx_sel_0 == 1);
+    assert(cx_sel_0 > 0);
 
     cx_sel( cx_sel_0 );
 
@@ -161,7 +161,6 @@ void pext_test() {
 }
 
 int main() {
-    cx_init();
     cx_sel( CX_LEGACY );
     pext_test();
     printf("p-ext test passed\n");
