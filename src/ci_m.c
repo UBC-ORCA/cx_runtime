@@ -11,6 +11,7 @@
 #include "../zoo/mulacc/mulacc_common.h"
 #include "../zoo/muldiv/muldiv_common.h"
 #include "../zoo/addsub/addsub_common.h"
+#include "../zoo/p-ext/p-ext_common.h"
 
 #define CX_AVAIL_STATE 1
 #define CX_UNAVAIL_STATE 0
@@ -59,18 +60,21 @@ static int is_valid_state_id(cx_id_t cx_id, state_id_t state_id)
 // populates the cx_map
 void cx_init() {
     // zero the mcx_selector
-    // asm volatile ("csrw " MCX_SELECTOR ", 0        \n\t");
+    cx_csr_write(MCX_SELECTOR, 0);
     
     // 0 initialize the cx_status csr
-    // asm volatile ("csrw 0x, " CX_STATUS "        \n\t");
+    cx_csr_write(CX_STATUS, 0);
 
     cx_map[0].cx_guid = CX_GUID_MULDIV;
     cx_map[1].cx_guid = CX_GUID_ADDSUB;
     cx_map[2].cx_guid = CX_GUID_MULACC;
+    cx_map[3].cx_guid = CX_GUID_PEXT;
+
 
     cx_map[0].num_states = CX_MULDIV_NUM_STATES;
     cx_map[1].num_states = CX_ADDSUB_NUM_STATES;
     cx_map[2].num_states = CX_MULACC_NUM_STATES;
+    cx_map[3].num_states = CX_PEXT_NUM_STATES;
 
     for (int i = 0; i < NUM_CX; i++) {
         cx_map[i].avail_state_ids = malloc(cx_map[i].num_states * sizeof(int));
@@ -91,6 +95,7 @@ int32_t cx_open(cx_guid_t cx_guid, cx_share_t cx_share) {
                 cx_id = j;
         }
     }
+    
     if (cx_id == -1) {
        return -1; 
     }
@@ -108,9 +113,9 @@ int32_t cx_open(cx_guid_t cx_guid, cx_share_t cx_share) {
             return -1;
         }
 
-        cx_sel_t cx_sel_ = gen_cx_sel(cx_id, state_id, MCX_VERSION);
-        // TODO: Check if the cx_selector is valid / non-zero
-        cx_sel(cx_sel_);
+        cx_sel_t new_cx_sel = gen_cx_sel(cx_id, state_id, MCX_VERSION);
+
+        cx_sel(new_cx_sel);
 
         uint status = CX_READ_STATUS();
         uint state_size = GET_CX_STATE_SIZE(status);
@@ -133,14 +138,14 @@ int32_t cx_open(cx_guid_t cx_guid, cx_share_t cx_share) {
         }
 
         cx_sel(prev_sel);
-        return cx_sel_;
+        return new_cx_sel;
     }
 }
 
 
 void cx_close(cx_sel_t cx_sel)
 {
-  cx_id_t cx_id = ((cx_selidx_t) cx_sel).sel.cx_id;
+  cx_id_t cx_id = GET_CX_ID(cx_sel);
   // Stateless cx's
   if (cx_map[cx_id].num_states == 0) {
     return;
