@@ -23,11 +23,6 @@ target_ulong HELPER(cx_reg)(CPURISCVState *env, target_ulong cf_id,
     uint32_t STATE_ID = GET_CX_STATE(env->mcx_selector);
     uint32_t VERSION = GET_CX_VERSION(env->mcx_selector);
 
-    // hack for trapping - this should only be called in the cx_reg after cx_sel.
-    if (OPA == 0 && OPB == 0 && OPCODE_ID == 0) {
-        return 0;
-    }
-
     // not sure if these are the right error values to set it to
     if (env->mcx_selector == CX_INVALID_SELECTOR) {
         cx_status_t cx_status = {.idx = env->cx_status};
