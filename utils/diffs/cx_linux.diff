@@ -138,7 +138,7 @@ index 292c31697248..5d0f704ecd27 100644
  	 * New fields for task_struct should be added above here, so that
  	 * they are included in the randomized portion of task_struct.
 diff --git a/include/linux/syscalls.h b/include/linux/syscalls.h
-index fd9d12de7e92..816568a24017 100644
+index fd9d12de7e92..81ac5f3406be 100644
 --- a/include/linux/syscalls.h
 +++ b/include/linux/syscalls.h
 @@ -1279,4 +1279,11 @@ int __sys_getsockopt(int fd, int level, int optname, char __user *optval,
@@ -148,8 +148,8 @@ index fd9d12de7e92..816568a24017 100644
 +
 +long sys_cx_open(int cx_guid);
 +long sys_cx_close(int cx_sel);
-+long sys_context_restore(void);
-+long sys_context_save(void);
++// long __riscv_sys_context_restore(void);
++// long __riscv_sys_context_save(void);
 +// long sys_cx_first_use(void);
 +
  #endif
@@ -194,10 +194,10 @@ index 5727d42149c3..100c662effbe 100644
   * Initial thread structure. Alignment of this is handled by a special
   * linker map entry.
 diff --git a/init/main.c b/init/main.c
-index e24b0780fdff..32bb5ba4b736 100644
+index e24b0780fdff..fdd73ed46d3a 100644
 --- a/init/main.c
 +++ b/init/main.c
-@@ -111,6 +111,85 @@
+@@ -111,6 +111,93 @@
  
  #include <kunit/test.h>
  
@@ -209,42 +209,50 @@ index e24b0780fdff..32bb5ba4b736 100644
 +
 +extern cx_entry_t cx_map[NUM_CX];
 +
++static int cx_init_process(void) {
++	current->mcx_table = kzalloc(sizeof(int) * CX_SEL_TABLE_NUM_ENTRIES, GFP_KERNEL);
++	if (!current->mcx_table) {
++			// some sort of allocation error here
++			return -1;
++	}
++	current->cx_os_state_table = (cx_os_state_t *)kzalloc(sizeof(cx_os_state_t) * CX_SEL_TABLE_NUM_ENTRIES, GFP_KERNEL);
++	if (!current->cx_os_state_table) {
++			// some sort of allocation error here
++			return -1;
++	}
++
++	// TODO: Check for successful allocation
++	current->cx_table_avail_indices = make_queue(CX_SEL_TABLE_NUM_ENTRIES);
++
++	// 1st slot in table is canonical legacy value
++	current->mcx_table[0] = CX_LEGACY;
++	dequeue(current->cx_table_avail_indices);
++
++	for (int i = 1; i < CX_SEL_TABLE_NUM_ENTRIES; i++) {
++		current->mcx_table[i] = CX_INVALID_SELECTOR;
++	}
++
++	// Update the mcx_table csr with the mcx_table address
++	csr_write(MCX_TABLE, &current->mcx_table[0]);
++
++	// 0 initialize the cx_index table csr
++	csr_write(CX_INDEX, 0);
++
++	// 0 initialize the mcx_selector csr
++	csr_write(MCX_SELECTOR, 0);
++
++	// 0 initialize the cx_status csr
++	csr_write(CX_STATUS, 0);
++
++	return 0;
++}
++
 +int cx_init(void) {
 +        pr_info("Ran in part of main\n");
-+        current->mcx_table = kzalloc(sizeof(int) * CX_SEL_TABLE_NUM_ENTRIES, GFP_KERNEL);
-+        if (!current->mcx_table) {
-+                // some sort of allocation error here
-+                return -1;
-+        }
-+        current->cx_os_state_table = (cx_os_state_t *)kzalloc(sizeof(cx_os_state_t) * CX_SEL_TABLE_NUM_ENTRIES, GFP_KERNEL);
-+        if (!current->cx_os_state_table) {
-+                // some sort of allocation error here
-+                return -1;
-+        }
++        if (cx_init_process() < 0) {
++			return -1;
++		}
 +
-+        // TODO: Check for successful allocation
-+        current->cx_table_avail_indices = make_queue(CX_SEL_TABLE_NUM_ENTRIES);
-+
-+        // 1st slot in table is canonical legacy value
-+        current->mcx_table[0] = CX_LEGACY;
-+        dequeue(current->cx_table_avail_indices);
-+
-+        for (int i = 1; i < CX_SEL_TABLE_NUM_ENTRIES; i++) {
-+                current->mcx_table[i] = CX_INVALID_SELECTOR;
-+        }
-+
-+        // Update the mcx_table csr with the mcx_table address
-+        csr_write(MCX_TABLE, &current->mcx_table[0]);
-+
-+        // 0 initialize the cx_index table csr
-+        cx_csr_write(CX_INDEX, 0);
-+
-+        // 0 initialize the mcx_selector csr
-+        csr_write(MCX_SELECTOR, 0);
-+
-+        // 0 initialize the cx_status csr
-+        csr_write(CX_STATUS, 0);
-+        
 +        cx_map[0].cx_guid = CX_GUID_MULDIV;
 +        cx_map[1].cx_guid = CX_GUID_ADDSUB;
 +        cx_map[2].cx_guid = CX_GUID_MULACC;
@@ -283,7 +291,7 @@ index e24b0780fdff..32bb5ba4b736 100644
  static int kernel_init(void *);
  
  /*
-@@ -670,6 +749,7 @@ static void __init setup_command_line(char *command_line)
+@@ -670,6 +757,7 @@ static void __init setup_command_line(char *command_line)
  	saved_command_line_len = strlen(saved_command_line);
  }
  
@@ -291,17 +299,15 @@ index e24b0780fdff..32bb5ba4b736 100644
  /*
   * We need to finalize in a non-__init function or else race conditions
   * between the root thread and the init thread may cause start_kernel to
-@@ -692,7 +772,9 @@ noinline void __ref __noreturn rest_init(void)
- 	 * the init task will end up wanting to create kthreads, which, if
+@@ -693,6 +781,7 @@ noinline void __ref __noreturn rest_init(void)
  	 * we schedule it before we create kthreadd, will OOPS.
  	 */
-+	pr_info("before pid thing\n");
  	pid = user_mode_thread(kernel_init, NULL, CLONE_FS);
 +
  	/*
  	 * Pin init on the boot CPU. Task migration is not properly working
  	 * until sched_init_smp() has been run. It will set the allowed
-@@ -727,7 +809,9 @@ noinline void __ref __noreturn rest_init(void)
+@@ -727,7 +816,9 @@ noinline void __ref __noreturn rest_init(void)
  	 */
  	schedule_preempt_disabled();
  	/* Call into cpu_idle with preempt disabled */
@@ -311,7 +317,7 @@ index e24b0780fdff..32bb5ba4b736 100644
  }
  
  /* Check for early params. */
-@@ -1462,9 +1546,9 @@ static int __ref kernel_init(void *unused)
+@@ -1462,9 +1553,10 @@ static int __ref kernel_init(void *unused)
  	rcu_end_inkernel_boot();
  
  	do_sysctl_args();
@@ -319,6 +325,7 @@ index e24b0780fdff..32bb5ba4b736 100644
  	if (ramdisk_execute_command) {
  		ret = run_init_process(ramdisk_execute_command);
 +		cx_init();
++		pr_info("init pid: %d\n", current->pid);
  		if (!ret)
  			return 0;
  		pr_err("Failed to execute %s (error %d)\n",
