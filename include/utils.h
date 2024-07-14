@@ -25,6 +25,7 @@
 #define MAX_CX_ID 255
 #define NUM_CX 4
 
+
 #define MAX_CXU_ID 1 << CX_ID_BITS
 #define MAX_STATE_ID 1 << STATE_ID_BITS
 
@@ -174,17 +175,17 @@ typedef union {
 } cx_status_t;
 
 enum CX_CS {
-    OFF, 
-    INITIAL, 
-    CLEAN,
-    DIRTY
+    CX_OFF, 
+    CX_INITIAL, 
+    CX_CLEAN,
+    CX_DIRTY
 };
 
-enum SHARE_TYPE {
+typedef enum {
 	EXCLUDED,
 	PROCESS_SHARED,
 	GLOBAL_SHARED
-};
+} CX_SHARE_T;
 
 #define CX_REG_HELPER(cf_id, rs1, rs2)      ({           \
     register int __v;                                    \

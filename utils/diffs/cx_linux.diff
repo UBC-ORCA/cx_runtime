@@ -1,13 +1,12 @@
 diff --git a/Kbuild b/Kbuild
-index 464b34a08f51..64a2bfedd213 100644
+index 464b34a08f51..2880b03fa60b 100644
 --- a/Kbuild
 +++ b/Kbuild
-@@ -97,3 +97,5 @@ obj-$(CONFIG_SAMPLES)	+= samples/
+@@ -97,3 +97,4 @@ obj-$(CONFIG_SAMPLES)	+= samples/
  obj-$(CONFIG_NET)	+= net/
  obj-y			+= virt/
  obj-y			+= $(ARCH_DRIVERS)
 +obj-y           += cx_sys/
-+
 diff --git a/arch/riscv/include/asm/asm-prototypes.h b/arch/riscv/include/asm/asm-prototypes.h
 index 36b955c762ba..637cd642e6cc 100644
 --- a/arch/riscv/include/asm/asm-prototypes.h
@@ -21,7 +20,7 @@ index 36b955c762ba..637cd642e6cc 100644
  asmlinkage void handle_bad_stack(struct pt_regs *regs);
  asmlinkage void do_page_fault(struct pt_regs *regs);
 diff --git a/arch/riscv/kernel/traps.c b/arch/riscv/kernel/traps.c
-index a1b9be3c4332..ba8aa9062863 100644
+index a1b9be3c4332..9722f85d0c11 100644
 --- a/arch/riscv/kernel/traps.c
 +++ b/arch/riscv/kernel/traps.c
 @@ -32,6 +32,8 @@
@@ -47,7 +46,7 @@ index a1b9be3c4332..ba8aa9062863 100644
  	bool handled;
 +	u32 insn = (u32)regs->badaddr;
 +	uint opc = insn & ((1<<7)-1);
-+	
++
 +	if (opc == CX_REG_TYPE || opc == CX_IMM_TYPE || opc == CX_FLEX_TYPE) {
 +		do_trap_first_cx_use(regs);
 +		return;
@@ -81,28 +80,27 @@ index a1b9be3c4332..ba8aa9062863 100644
  asmlinkage __visible noinstr void do_page_fault(struct pt_regs *regs)
  {
 diff --git a/include/linux/sched.h b/include/linux/sched.h
-index 292c31697248..5d0f704ecd27 100644
+index 292c31697248..5ac644a332e2 100644
 --- a/include/linux/sched.h
 +++ b/include/linux/sched.h
-@@ -39,6 +39,8 @@
+@@ -39,6 +39,9 @@
  #include <linux/livepatch_sched.h>
  #include <asm/kmap_size.h>
  
 +#include <linux/queue.h>
++#include "../../../../research/riscv-tools/cx_runtime/include/cx_kern_structs.h"
 +
  /* task_struct member predeclarations (sorted alphabetically): */
  struct audit_context;
  struct bio_list;
-@@ -743,6 +745,26 @@ struct kmap_ctrl {
+@@ -743,6 +746,23 @@ struct kmap_ctrl {
  #endif
  };
  
 +typedef uint cx_stare_t;
 +
 +typedef struct {
-+  cx_stare_t share;
 +  uint ctx_status;
-+  uint size;
 +  int *data;
 +} cx_os_state_t;
 +
@@ -112,15 +110,14 @@ index 292c31697248..5d0f704ecd27 100644
 +  int num_states;
 +
 +  // dynamic
-+  int *counter;
-+  int *index; // For stateless cxus ONLY - stores the cx_index
 +  queue_t *avail_state_ids;
++  cx_state_info_t *state_info;
 +} cx_entry_t;
 +
  struct task_struct {
  #ifdef CONFIG_THREAD_INFO_IN_TASK
  	/*
-@@ -1544,6 +1566,16 @@ struct task_struct {
+@@ -1544,6 +1564,16 @@ struct task_struct {
  	struct user_event_mm		*user_event_mm;
  #endif
  
@@ -130,7 +127,7 @@ index 292c31697248..5d0f704ecd27 100644
 +	cx_os_state_t *cx_os_state_table;
 +
 +	queue_t *cx_table_avail_indices;
-+	
++
 +	// TODO: This shouldn't be here - should be in the device_struct.
 +	// cx_entry_t cx_map[NUM_CX];
 +
@@ -179,14 +176,13 @@ index 756b013fb832..81e95ed4d5b2 100644
  /*
   * 32 bit systems traditionally used different
 diff --git a/init/init_task.c b/init/init_task.c
-index 5727d42149c3..100c662effbe 100644
+index 5727d42149c3..6ebc51ad309f 100644
 --- a/init/init_task.c
 +++ b/init/init_task.c
-@@ -213,6 +213,10 @@ struct task_struct init_task
+@@ -213,6 +213,9 @@ struct task_struct init_task
  };
  EXPORT_SYMBOL(init_task);
  
-+#define NUM_CX 4
 +cx_entry_t cx_map[NUM_CX];
 +EXPORT_SYMBOL(cx_map);
 +
@@ -194,10 +190,10 @@ index 5727d42149c3..100c662effbe 100644
   * Initial thread structure. Alignment of this is handled by a special
   * linker map entry.
 diff --git a/init/main.c b/init/main.c
-index e24b0780fdff..fdd73ed46d3a 100644
+index e24b0780fdff..f3ab44a58117 100644
 --- a/init/main.c
 +++ b/init/main.c
-@@ -111,6 +111,93 @@
+@@ -111,6 +111,96 @@
  
  #include <kunit/test.h>
  
@@ -271,15 +267,18 @@ index e24b0780fdff..fdd73ed46d3a 100644
 +
 +                // stateless cxu
 +                if (num_states == 0) {
-+                        cx_map[i].index = kzalloc(sizeof(int) * 1, GFP_KERNEL);
-+                        cx_map[i].counter = kzalloc(sizeof(int) * 1, GFP_KERNEL);
-+
-+                        cx_map[i].index[0] = -1;
++						cx_map[i].state_info = (cx_state_info_t *) kzalloc(sizeof(cx_state_info_t), GFP_KERNEL);
++                        cx_map[i].state_info[0].index = kzalloc(sizeof(int) * 1, GFP_KERNEL);
++						cx_map[i].state_info[0].index[0] = -1;
 +                }
 +                // stateful cxu
 +                else {
 +                        // cx_map[i].index = kzalloc(sizeof(int) * 1, GFP_KERNEL);
-+                        cx_map[i].counter = kzalloc(sizeof(int) * num_states, GFP_KERNEL);
++                        cx_map[i].state_info = (cx_state_info_t *) kzalloc(sizeof(cx_state_info_t) * num_states, GFP_KERNEL);
++						for (int j = 0; j < num_states; j++) {
++							cx_map[i].state_info[j].share = -1;
++							cx_map[i].state_info[j].counter = 0;
++						}
 +                        cx_map[i].avail_state_ids = make_queue(num_states);
 +                }
 +        }
@@ -291,7 +290,7 @@ index e24b0780fdff..fdd73ed46d3a 100644
  static int kernel_init(void *);
  
  /*
-@@ -670,6 +757,7 @@ static void __init setup_command_line(char *command_line)
+@@ -670,6 +760,7 @@ static void __init setup_command_line(char *command_line)
  	saved_command_line_len = strlen(saved_command_line);
  }
  
@@ -299,7 +298,7 @@ index e24b0780fdff..fdd73ed46d3a 100644
  /*
   * We need to finalize in a non-__init function or else race conditions
   * between the root thread and the init thread may cause start_kernel to
-@@ -693,6 +781,7 @@ noinline void __ref __noreturn rest_init(void)
+@@ -693,6 +784,7 @@ noinline void __ref __noreturn rest_init(void)
  	 * we schedule it before we create kthreadd, will OOPS.
  	 */
  	pid = user_mode_thread(kernel_init, NULL, CLONE_FS);
@@ -307,7 +306,7 @@ index e24b0780fdff..fdd73ed46d3a 100644
  	/*
  	 * Pin init on the boot CPU. Task migration is not properly working
  	 * until sched_init_smp() has been run. It will set the allowed
-@@ -727,7 +816,9 @@ noinline void __ref __noreturn rest_init(void)
+@@ -727,7 +819,9 @@ noinline void __ref __noreturn rest_init(void)
  	 */
  	schedule_preempt_disabled();
  	/* Call into cpu_idle with preempt disabled */
@@ -317,7 +316,7 @@ index e24b0780fdff..fdd73ed46d3a 100644
  }
  
  /* Check for early params. */
-@@ -1462,9 +1553,10 @@ static int __ref kernel_init(void *unused)
+@@ -1462,9 +1556,10 @@ static int __ref kernel_init(void *unused)
  	rcu_end_inkernel_boot();
  
  	do_sysctl_args();
