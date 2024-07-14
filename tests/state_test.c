@@ -43,7 +43,7 @@ void state_test() {
     uint initializer_cfg = GET_CX_INITIALIZER(status);
 
     /* Status should always be dirty after either a hw or sw initialization */
-    assert( cs_status == DIRTY );
+    assert( cs_status == CX_DIRTY );
     assert( state_size == 1 );  // state size unchanged
     assert( error == 0 );       // No error
     assert( initializer_cfg == 0 ); // initializer unchanged
@@ -56,7 +56,7 @@ void state_test() {
     state_size = GET_CX_STATE_SIZE(status);
     error = GET_CX_ERROR(status);
     initializer_cfg = GET_CX_INITIALIZER(status);
-    assert( cs_status == DIRTY );
+    assert( cs_status == CX_DIRTY );
     assert( state_size == 1 );  // state size unchanged
     assert( error == 0 );       // No error
     assert( initializer_cfg == 0 ); // initializer unchanged

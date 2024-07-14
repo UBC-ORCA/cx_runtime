@@ -18,7 +18,7 @@ void context_save_restore_test() {
   cx_sel_t cx_index;
 
   cx_stctxs_t expected_stctxs = {.sel = {
-                                  .cs = DIRTY,
+                                  .cs = CX_DIRTY,
                                   .error = 0,
                                   .initializer = CX_HW_INIT,
                                   .state_size = 1
@@ -85,7 +85,7 @@ void context_save_restore_test() {
 
   // checking state status was restored, and set to clean
   cx_status = CX_READ_STATUS();
-  expected_stctxs.sel.cs = CLEAN;
+  expected_stctxs.sel.cs = CX_CLEAN;
   assert( cx_status == expected_stctxs.idx );
 
   cx_error_clear();

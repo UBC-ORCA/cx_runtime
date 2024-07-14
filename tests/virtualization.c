@@ -18,7 +18,7 @@ void virtualization_test() {
   cx_sel_t cx_index;
 
   cx_stctxs_t expected_stctxs = {.sel = {
-                                  .cs = DIRTY,
+                                  .cs = CX_DIRTY,
                                   .error = 0,
                                   .initializer = CX_HW_INIT,
                                   .state_size = 1
