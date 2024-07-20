@@ -23,7 +23,6 @@ void virtualization_test() {
                                   .initializer = CX_HW_INIT,
                                   .state_size = 1
                                 }};
-
   int cx_sel_c1 = cx_open(CX_GUID_MULACC, share_C);
 
   assert(cx_sel_c1 > 0);
@@ -34,7 +33,6 @@ void virtualization_test() {
   // Status is set to dirty after initializing
   cx_status = CX_READ_STATUS();
   assert( cx_status == expected_stctxs.idx );
-
   result = mac(b, b);
   assert( result == 25 );
   cx_error = cx_error_read();
@@ -131,7 +129,7 @@ void virtualization_test() {
 }
 
 int main() {
-    cx_sel(CX_LEGACY);
+    // cx_sel(CX_LEGACY);
     virtualization_test();
     printf("Virtualization test complete\n");
 

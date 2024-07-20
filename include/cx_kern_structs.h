@@ -41,7 +41,6 @@ typedef struct cx_state_info_t {
     // 0'ed again, we must resepect that all newly opened virtual
     // contexts are of the same share type, or else the cx_open will fail.
     s32 counter;
-    s32 *index; // For stateless cxus ONLY - stores the cx_index
 } cx_state_info_t;
 
 // 1 cxu_info_t per cxu
@@ -52,5 +51,21 @@ typedef struct cxu_t {
     queue_t *avail_state_ids;
     cx_state_info_t *state_info;
 } cxu_t;
+
+typedef struct {
+  uint ctx_status;
+  s32 counter; // only used for stateless cxs
+  int *data;
+} cx_os_state_t;
+
+typedef struct {
+  // static
+  int cx_guid;
+  int num_states;
+
+  // dynamic
+  queue_t *avail_state_ids;
+  cx_state_info_t *state_info;
+} cx_entry_t;
 
 #endif // KERN_STRUCTS_H
