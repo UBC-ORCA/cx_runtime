@@ -161,7 +161,7 @@ void pext_test() {
 }
 
 int main() {
-    // cx_sel( CX_LEGACY );
+    cx_sel( CX_LEGACY );
     pext_test();
     printf("p-ext test passed\n");
     return 0;

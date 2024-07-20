@@ -107,7 +107,7 @@ index ebd7917d49..58e7040267 100644
  #define VCSR_VXSAT_SHIFT    0
  #define VCSR_VXSAT          (0x1 << VCSR_VXSAT_SHIFT)
 diff --git a/target/riscv/csr.c b/target/riscv/csr.c
-index c50a33397c..7c6152143f 100644
+index c50a33397c..d7a6df16e1 100644
 --- a/target/riscv/csr.c
 +++ b/target/riscv/csr.c
 @@ -30,6 +30,8 @@
@@ -119,7 +119,7 @@ index c50a33397c..7c6152143f 100644
  
  /* CSR function table public API */
  void riscv_get_csr_ops(int csrno, riscv_csr_operations *ops)
-@@ -4471,6 +4473,104 @@ static RISCVException write_jvt(CPURISCVState *env, int csrno,
+@@ -4471,6 +4473,112 @@ static RISCVException write_jvt(CPURISCVState *env, int csrno,
      return RISCV_EXCP_NONE;
  }
  
@@ -186,6 +186,13 @@ index c50a33397c..7c6152143f 100644
 +//     env->mstatus |= MSTATUS_VS;
 +// #endif
 +
++    // TODO: Fix this. This deals with writing to cx_index in the case that
++    //       the mcx_table isn't initialized.
++    if (env->mcx_table < 0xc0000000) {
++        env->mcx_selector = 0;
++        return RISCV_EXCP_NONE;
++    }
++
 +    env->cx_index = val;
 +    int prev_priv = env->priv;
 +
@@ -197,10 +204,11 @@ index c50a33397c..7c6152143f 100644
 +    // if the selector index is out of range, have an error
 +    // or if it's bigger than the table size
 +    // on git: can check branch on git for CX CSR approach
-+
++    
 +    target_ulong temp = cpu_ldl_mmu(env, env->mcx_table + val * 4, oi, ra);
 +    riscv_cpu_set_mode(env, prev_priv);
 +    env->mcx_selector = temp;
++
 +    return RISCV_EXCP_NONE;
 +}
 +
@@ -224,7 +232,7 @@ index c50a33397c..7c6152143f 100644
  /*
   * Control and Status Register function table
   * riscv_csr_operations::predicate() must be provided for an implemented CSR
-@@ -4507,6 +4607,15 @@ riscv_csr_operations csr_ops[CSR_TABLE_SIZE] = {
+@@ -4507,6 +4615,15 @@ riscv_csr_operations csr_ops[CSR_TABLE_SIZE] = {
      /* Zcmt Extension */
      [CSR_JVT] = {"jvt", zcmt, read_jvt, write_jvt},
  

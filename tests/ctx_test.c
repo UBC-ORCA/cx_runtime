@@ -103,7 +103,7 @@ void context_save_restore_test() {
 }
 
 int main() {
-    // cx_sel(CX_LEGACY);
+    cx_sel(CX_LEGACY);
     context_save_restore_test();
     printf("Context save / restore test complete\n");
 

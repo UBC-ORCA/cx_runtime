@@ -149,7 +149,7 @@ void state_test() {
 }
 
 int main() {
-    // cx_sel( CX_LEGACY );
+    cx_sel( CX_LEGACY );
     state_test();
     printf("state test passed\n");
     return 0;

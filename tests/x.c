@@ -370,7 +370,7 @@ void complex_fork_test() {
 }
 
 int main() {
-    // cx_sel(CX_LEGACY);
+    cx_sel(CX_LEGACY);
     test_fork();
     test_fork_0();
     test_fork_1();
