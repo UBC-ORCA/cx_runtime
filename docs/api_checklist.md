@@ -4,7 +4,7 @@
 
 :white_check_mark: simple M-mode mcx_selector operation
 
-:x: application alternating between 2 different CXUs / contexts
+:white_check_mark: application alternating between 2 different CXUs / contexts
 
 :white_check_mark: simple ABI, manually written & inserted into the code
 
@@ -36,7 +36,7 @@
 
 :white_check_mark: supports virtualization of states
 
-:x: supports context switching
+:white_check_mark: supports context switching
 
 # Future Work
 
