@@ -281,7 +281,7 @@ index aedc0832c9f4..3b3cfb272776 100644
  
  	exit_mm();
 diff --git a/kernel/fork.c b/kernel/fork.c
-index 10917c3e1f03..83366b0265bd 100644
+index 10917c3e1f03..a9124be36d10 100644
 --- a/kernel/fork.c
 +++ b/kernel/fork.c
 @@ -111,6 +111,8 @@
@@ -326,7 +326,7 @@ index 10917c3e1f03..83366b0265bd 100644
  	p->flags &= ~PF_KTHREAD;
  	if (args->kthread)
  		p->flags |= PF_KTHREAD;
-@@ -2391,8 +2398,21 @@ __latent_entropy struct task_struct *copy_process(
+@@ -2391,8 +2398,20 @@ __latent_entropy struct task_struct *copy_process(
  	INIT_LIST_HEAD(&p->sibling);
  	rcu_copy_process(p);
  	p->vfork_done = NULL;
@@ -336,7 +336,6 @@ index 10917c3e1f03..83366b0265bd 100644
 +	p->cx_index = current->cx_index;
 +	p->cx_status = current->cx_status;
 +	if (current->mcx_table) {
-+		pr_info("allocating some stuff!\n");
 +		cx_process_alloc(p);
 +		cx_copy_table(p);
 +	} else {

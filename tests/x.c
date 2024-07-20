@@ -26,7 +26,6 @@ void test_fork() {
   } else {
     wait(NULL);
   }
-  printf("Finished basic fork\n");
   return; 
 }
 
