@@ -43,12 +43,10 @@ static inline int32_t mulacc_write_status_func( int32_t value,
                                                 __attribute__((unused)) int32_t unused0,
                                                 int32_t state_id ) {    
     uint cx_status = GET_CX_STATUS(value);
-    uint state_size = GET_CX_STATE_SIZE(value);
 
     if (cx_status == CX_OFF) {
         cxu_stctx_status[state_id] = off_status_word;
-    }
-    if (cx_status == CX_INITIAL) {
+    } else if (cx_status == CX_INITIAL) {
         // Write initial first, in case state is read. SW will know that CXU is still
         // in the process of resetting.
         cxu_stctx_status[state_id] = initial_status_word;
