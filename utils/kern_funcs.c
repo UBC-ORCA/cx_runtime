@@ -50,8 +50,6 @@ int cx_init_process(struct task_struct *tsk) {
 
 int cx_copy_table(struct task_struct *new) {
 
-	pr_info("copying table\n");
-
 	new->mcx_table[0] = CX_LEGACY;
 
 	for (int i = 1; i < CX_SEL_TABLE_NUM_ENTRIES; i++) {
@@ -69,7 +67,7 @@ int cx_copy_table(struct task_struct *new) {
 			pr_info("excluded cx; i: %d, sel: %08x\n", i, prev_cx_sel);
 			return -1;
 		} else if (cx_share == -1) {
-			pr_info("do something with stateless copy?\n");
+
 		} else {
 			// TODO: This should be incremented by the counter in the cx_os_state_table
 			// cx_map[cxu_id].state_info[state_id].counter++;
@@ -78,7 +76,6 @@ int cx_copy_table(struct task_struct *new) {
 			memcpy(new->cx_os_state_table[i].data, current->cx_os_state_table[i].data, MAX_STATE_SIZE);
 			new->cx_os_state_table[i].ctx_status = current->cx_os_state_table[i].ctx_status;
 		}
-		// pr_info("%08x\n", prev_cx_sel);
 		new->cx_os_state_table[i].counter = current->cx_os_state_table[i].counter;
 		cx_map[cxu_id].state_info[state_id].counter += current->cx_os_state_table[i].counter;
 	}	
@@ -177,11 +174,12 @@ int cx_close(struct task_struct *tsk, int cx_sel)
 	cx_sel_t cx_sel_entry = tsk->mcx_table[cx_sel];
 
 	if (cx_sel_entry == CX_INVALID_SELECTOR) {
+		pr_info("invalid selector on close\n");
 		return -1;
 	}
 
 	// TODO: see if we can remove this cast
-	cx_id_t cx_id = ((cx_selidx_t) ((uint)cx_sel_entry)).sel.cx_id;
+	cx_id_t cx_id = GET_CX_ID(cx_sel_entry);
 
 	if (!is_valid_cx_id(cx_id)) {
 		return -1;
@@ -196,7 +194,7 @@ int cx_close(struct task_struct *tsk, int cx_sel)
 	#endif
 	// Stateful cx's
 	if (cx_map[cx_id].num_states > 0) {
-		state_id_t state_id = ((cx_selidx_t) ((uint)cx_sel_entry)).sel.state_id;
+		state_id_t state_id = GET_CX_STATE(cx_sel_entry);
 		if (!is_valid_state_id(cx_id, state_id)) {
 			// errno = 139;
 			return -1;
@@ -256,19 +254,16 @@ void exit_cx(struct task_struct *tsk) {
 	}
 
 	if (tsk->mcx_table) {
-		pr_info("freeing table\n");
 		kfree(tsk->mcx_table);
 		tsk->mcx_table = NULL;
 	}
 
 	if (tsk->cx_os_state_table) {
-		pr_info("freeing os table\n");
 		kfree(tsk->cx_os_state_table);
 		tsk->cx_os_state_table = NULL;
 	}
 
 	if (tsk->cx_table_avail_indices) {
-		pr_info("freeing avail_indicies\n");
 		free_queue(tsk->cx_table_avail_indices);
 		tsk->cx_table_avail_indices = NULL;
 	}
@@ -380,8 +375,6 @@ int cx_context_restore(struct task_struct *tsk) {
         // 3. Restore state information
         for (int i = 1; i < CX_SEL_TABLE_NUM_ENTRIES; i++) {
                 
-                cx_stctxs_t cx_stctxs = {.idx = tsk->cx_os_state_table[i].ctx_status};
-
                 // ignore table indicies that aren't occupied, and only save dirty states
                 if (GET_CX_CXE(tsk->mcx_table[i]) == 0) {
 
@@ -397,7 +390,7 @@ int cx_context_restore(struct task_struct *tsk) {
                         copy_state_from_os( i, tsk );
 
                         // Restoring status word + setting to clean
-                        cx_stctxs.sel.cs = CX_CLEAN;
+                		cx_stctxs_t cx_stctxs = {.idx = tsk->cx_os_state_table[i].ctx_status};
                         tsk->cx_os_state_table[i].ctx_status = cx_stctxs.idx;
                         CX_WRITE_STATUS(cx_stctxs.idx);
                 }

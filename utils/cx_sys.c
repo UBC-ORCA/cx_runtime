@@ -122,7 +122,7 @@ SYSCALL_DEFINE2(cx_open, int, cx_guid, int, cx_share)
                 int state_id = -1;
                 if (cx_share == PROCESS_SHARED) {
                         // When we get PCIe device struct as a cx_map, this will be a lot more efficent
-                        for (int i = 0; i < CX_SEL_TABLE_NUM_ENTRIES; i++) {
+                        for (int i = 1; i < CX_SEL_TABLE_NUM_ENTRIES; i++) {
                                 if (current->mcx_table[i] == CX_INVALID_SELECTOR) {
                                         continue;
                                 }
@@ -179,6 +179,11 @@ SYSCALL_DEFINE2(cx_open, int, cx_guid, int, cx_share)
                         return -1;
                 }
 
+                // Status will now be dirty. Might be better just to update to dirty explicitly instead
+                // of reading again.
+		status = CX_READ_STATUS();
+                current->cx_os_state_table[cx_index].ctx_status = status;
+
                 cx_map[cx_id].state_info[state_id].share = GET_SHARE_TYPE(cx_share);
 
                 // 6. write the previous selector
@@ -224,9 +229,8 @@ SYSCALL_DEFINE0(do_nothing)
         uint cx_sel_A = current->mcx_table[cx_index_A];
         cx_sel_A &= ~(1 << (CX_CXE_START_INDEX));
         current->mcx_table[cx_index_A] = cx_sel_A;
-
         csr_write(MCX_SELECTOR, cx_sel_A);
-        
+
         // Because we're trapping on first use, the status we read does not belong to the
         // cx_index, but rather the index with the cxe == 0 bit in the mcx_table.
         cx_stctxs_t cx_stctxs_B = {.idx = CX_READ_STATUS()};
