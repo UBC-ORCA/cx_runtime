@@ -235,7 +235,6 @@ int cx_close(struct task_struct *tsk, int cx_sel)
 		pr_info("made it to case that shouldn't happen\n");
 		return -1; // Shouldn't make it to this case
 	}
-
 	return 0;
 }
 
@@ -267,6 +266,8 @@ void exit_cx(struct task_struct *tsk) {
 		free_queue(tsk->cx_table_avail_indices);
 		tsk->cx_table_avail_indices = NULL;
 	}
+    csr_write(CX_INDEX, 0);
+    csr_write(CX_STATUS, 0);
 }
 
 int initialize_state(uint status) 
