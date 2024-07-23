@@ -138,6 +138,7 @@ void test_fork_2() {
     exit(1); 
   } else if (pid == 0) {
     uint cx_sel_C2 = cx_open(CX_GUID_ADDSUB, EXCLUDED);
+    assert( cx_sel_C2 > 0 );
 
     cx_sel(cx_sel_C2);
     result = add(a, b);
@@ -151,6 +152,8 @@ void test_fork_2() {
   } else {
     uint cx_sel_C4 = cx_open(CX_GUID_MULDIV, EXCLUDED);
     uint cx_sel_C5 = cx_open(CX_GUID_ADDSUB, EXCLUDED);
+    assert( cx_sel_C4 > 0 );
+    assert( cx_sel_C5 > 0 );
 
     cx_sel(cx_sel_C4);
 
@@ -195,8 +198,10 @@ void test_fork_3() {
   } else if (pid == 0) {
     uint cx_sel_C1 = cx_open(CX_GUID_MULACC, EXCLUDED);
     uint cx_sel_C2 = cx_open(CX_GUID_ADDSUB, EXCLUDED);
-    cx_sel(cx_sel_C1);
+    assert( cx_sel_C1 > 0 );
+    assert( cx_sel_C2 > 0 );
 
+    cx_sel(cx_sel_C1);
     result = mac(b, c);
     assert( result == 10 );
     result = mac(b, c);
@@ -219,9 +224,10 @@ void test_fork_3() {
 
     exit(EXIT_SUCCESS);
   } else {
-    // uint cx_sel_C3 = cx_open(CX_GUID_MULACC, EXCLUDED);
     uint cx_sel_C4 = cx_open(CX_GUID_MULDIV, EXCLUDED);
     uint cx_sel_C5 = cx_open(CX_GUID_ADDSUB, EXCLUDED);
+    assert( cx_sel_C4 > 0 );
+    assert( cx_sel_C5 > 0 );
 
     cx_sel(cx_sel_C4);
 
@@ -277,6 +283,9 @@ void complex_fork_test() {
   } else if (pid == 0) {
     uint cx_sel_C1 = cx_open(CX_GUID_MULACC, EXCLUDED);
     uint cx_sel_C2 = cx_open(CX_GUID_ADDSUB, EXCLUDED);
+    assert( cx_sel_C1 > 0 );
+    assert( cx_sel_C2 > 0 );
+
     cx_sel(cx_sel_C1);
 
     result = mac(b, c);
@@ -305,6 +314,8 @@ void complex_fork_test() {
   } else {
     uint cx_sel_C4 = cx_open(CX_GUID_MULDIV, EXCLUDED);
     uint cx_sel_C5 = cx_open(CX_GUID_ADDSUB, EXCLUDED);
+    assert( cx_sel_C4 > 0 );
+    assert( cx_sel_C5 > 0 );
 
     cx_sel(cx_sel_C4);
 
@@ -366,6 +377,7 @@ void use_prev_opened_in_child() {
   } else if (pid == 0) {
     // child
     uint cx_sel_C1 = cx_open(CX_GUID_MULACC, EXCLUDED);
+    assert( cx_sel_C1 > 0 );
     
     cx_sel(cx_sel_C0);
     result = mac(b, c);
@@ -386,6 +398,8 @@ void use_prev_opened_in_child() {
   } else {
     uint cx_sel_C4 = cx_open(CX_GUID_MULDIV, EXCLUDED);
     uint cx_sel_C5 = cx_open(CX_GUID_ADDSUB, EXCLUDED);
+    assert( cx_sel_C4 > 0 );
+    assert( cx_sel_C5 > 0 );
 
     cx_sel(cx_sel_C4);
 
@@ -447,6 +461,8 @@ void use_prev_opened_in_parent() {
   } else if (pid == 0) {
     uint cx_sel_C4 = cx_open(CX_GUID_MULDIV, EXCLUDED);
     uint cx_sel_C5 = cx_open(CX_GUID_ADDSUB, EXCLUDED);
+    assert( cx_sel_C4 > 0 );
+    assert( cx_sel_C5 > 0 );
 
     cx_sel(cx_sel_C4);
 
@@ -469,6 +485,7 @@ void use_prev_opened_in_parent() {
   } else {
     // child
     uint cx_sel_C1 = cx_open(CX_GUID_MULACC, EXCLUDED);
+    assert( cx_sel_C1 > 0 );
     
     cx_sel(cx_sel_C0);
     result = mac(b, c);
@@ -529,6 +546,8 @@ void use_prev_opened_in_parent_and_child() {
   } else if (pid == 0) {
     uint cx_sel_C4 = cx_open(CX_GUID_MULDIV, EXCLUDED);
     uint cx_sel_C5 = cx_open(CX_GUID_ADDSUB, EXCLUDED);
+    assert( cx_sel_C4 > 0 );
+    assert( cx_sel_C5 > 0 );
 
     cx_sel(cx_sel_C0);
     result = mac(b, b);
@@ -561,6 +580,7 @@ void use_prev_opened_in_parent_and_child() {
   } else {
     // child
     uint cx_sel_C1 = cx_open(CX_GUID_MULACC, EXCLUDED);
+    assert( cx_sel_C1 > 0 );
     
     cx_sel(cx_sel_C0);
     result = mac(b, c);
