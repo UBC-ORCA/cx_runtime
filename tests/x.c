@@ -49,10 +49,10 @@ void test_fork_0() {
                                   .initializer = CX_HW_INIT,
                                   .state_size = 1
                                 }};
-  pid_t p = fork(); 
-  assert(p >= 0);
+  pid_t pid = fork(); 
+  assert(pid >= 0);
 
-  if (p == 0) { 
+  if (pid == 0) { 
   // child process
     int cx_sel_C0 = cx_open(CX_GUID_MULACC, EXCLUDED);
     assert(cx_sel_C0 > 0);
@@ -67,7 +67,10 @@ void test_fork_0() {
   } else {
   // parent process
 
-    wait(NULL);
+    int status;
+    // Wait for child
+    waitpid(pid, &status, 0);
+    assert(status == 0);
   }
   return; 
 }
@@ -93,10 +96,10 @@ void test_fork_1() {
                                   .initializer = CX_HW_INIT,
                                   .state_size = 1
                                 }};
-  pid_t p = fork(); 
-  assert(p >= 0);
+  pid_t pid = fork(); 
+  assert(pid >= 0);
 
-  if (p == 0) { 
+  if (pid == 0) { 
   // child process
     int cx_sel_C0 = cx_open(CX_GUID_MULACC, EXCLUDED);
     assert(cx_sel_C0 > 0);
@@ -118,7 +121,10 @@ void test_fork_1() {
     assert( result == 4 );
     cx_close(cx_sel_C1);
 
-    wait(NULL);
+    int status;
+    // Wait for child
+    waitpid(pid, &status, 0);
+    assert(status == 0);
   }
   return; 
 }
@@ -182,10 +188,10 @@ void test_fork_2() {
 
     cx_close(cx_sel_C4);
     cx_close(cx_sel_C5);
-    // Parent process
     int status;
     // Wait for child
-    // waitpid(pid, &status, 0);
+    waitpid(pid, &status, 0);
+    assert(status == 0);
   }
 }
 
@@ -268,7 +274,8 @@ void test_fork_3() {
     // Parent process
     int status;
     // Wait for child
-    // waitpid(pid, &status, 0);
+    waitpid(pid, &status, 0);
+    assert(status == 0);
   }
 }
 
@@ -298,6 +305,7 @@ void complex_fork_test() {
   cx_sel(cx_sel_C0);
   result = mac(b, b);
   assert( result == 25 );
+  uint init_mcx_val = cx_csr_read(MCX_SELECTOR);
   
   cx_error = cx_error_read();
   assert( cx_error == 0 );
@@ -306,9 +314,9 @@ void complex_fork_test() {
   assert( cx_status == expected_stctxs.idx );
 
   pid_t pid = fork();
-  if (pid < 0){ 
-    perror("fork fail"); 
-    exit(1); 
+  if (pid < 0) {
+    perror("fork fail");
+    exit(1);
   } else if (pid == 0) {
     uint cx_sel_C1 = cx_open(CX_GUID_MULACC, EXCLUDED);
     uint cx_sel_C2 = cx_open(CX_GUID_ADDSUB, EXCLUDED);
@@ -317,6 +325,7 @@ void complex_fork_test() {
     result = mac(b, c);
     assert( result == 10 );
     result = mac(b, c);
+    // sometimes bugs out on the result == 20
     assert( result == 20 );
     result = mac(b, c);
     assert( result == 30 );
@@ -331,12 +340,12 @@ void complex_fork_test() {
     result = mac(a, c);
     assert( result == 36 );
 
+    cx_close(cx_sel_C0);
     cx_close(cx_sel_C1);
     cx_close(cx_sel_C2);
 
     exit(EXIT_SUCCESS);
   } else {
-    // uint cx_sel_C3 = cx_open(CX_GUID_MULACC, EXCLUDED);
     uint cx_sel_C4 = cx_open(CX_GUID_MULDIV, EXCLUDED);
     uint cx_sel_C5 = cx_open(CX_GUID_ADDSUB, EXCLUDED);
 
@@ -355,10 +364,10 @@ void complex_fork_test() {
 
     cx_close(cx_sel_C4);
     cx_close(cx_sel_C5);
-    // Parent process
     int status;
     // Wait for child
-    // waitpid(pid, &status, 0);
+    waitpid(pid, &status, 0);
+    assert(status == 0);
   }
 
   result = mac(b, b);
@@ -368,6 +377,101 @@ void complex_fork_test() {
   cx_sel(CX_LEGACY);
 }
 
+
+
+void use_prev_opened_in_child() {
+  int a = 3;
+  int b = 5;
+  int c = 2;
+  int result;
+
+  cx_error_t cx_error;
+  uint cx_status;
+  int32_t state_result;
+  cx_sel_t cx_index, cx_index_0;
+
+  cx_stctxs_t expected_stctxs = {.sel = {
+                                  .cs = CX_DIRTY,
+                                  .error = 0,
+                                  .initializer = CX_HW_INIT,
+                                  .state_size = 1
+                                }};
+  int cx_sel_C0 = cx_open(CX_GUID_MULACC, PROCESS_SHARED);
+
+  assert(cx_sel_C0 > 0);
+
+  cx_error_clear();
+  cx_sel(cx_sel_C0);
+  result = mac(b, b);
+  assert( result == 25 );
+  uint init_mcx_val = cx_csr_read(MCX_SELECTOR);
+  
+  cx_error = cx_error_read();
+  assert( cx_error == 0 );
+  
+  cx_status = CX_READ_STATUS();
+  assert( cx_status == expected_stctxs.idx );
+
+  pid_t pid = fork();
+  if (pid < 0) {
+    perror("fork fail");
+    exit(1);
+  } else if (pid == 0) {
+    // child
+    uint cx_sel_C1 = cx_open(CX_GUID_MULACC, EXCLUDED);
+    
+    cx_sel(cx_sel_C0);
+    result = mac(b, c);
+    assert( result == 35 );
+    result = mac(b, c);
+    assert( result == 45 );
+    result = mac(b, c);
+    assert( result == 55 );
+
+    cx_sel(cx_sel_C1);
+    result = mac(a, c);
+    assert( result == 6 );
+
+    cx_close(cx_sel_C0);
+    cx_close(cx_sel_C1);
+
+    exit(EXIT_SUCCESS);
+  } else {
+    uint cx_sel_C4 = cx_open(CX_GUID_MULDIV, EXCLUDED);
+    uint cx_sel_C5 = cx_open(CX_GUID_ADDSUB, EXCLUDED);
+
+    cx_sel(cx_sel_C4);
+
+    result = mul(a, b);
+    assert( result == 15 );
+    result = mul(c, b);
+    assert( result == 10 );
+    result = mul(a, c);
+    assert( result == 6 );
+
+    cx_sel(cx_sel_C5);
+    result = add(a, b);
+    assert(result == 8);
+
+    cx_close(cx_sel_C4);
+    cx_close(cx_sel_C5);
+    int status;
+    // Wait for child
+    waitpid(pid, &status, 0);
+    assert(status == 0);
+  }
+
+  cx_sel(cx_sel_C0);
+  result = mac(b, b);
+  assert (result == 50 );
+
+  cx_close(cx_sel_C0);
+
+  cx_sel(CX_LEGACY);
+}
+
+
+
 int main() {
     cx_sel(CX_LEGACY);
     test_fork();
@@ -376,6 +480,7 @@ int main() {
     test_fork_2();
     test_fork_3();
     complex_fork_test();
+    use_prev_opened_in_child();
     printf("Context Copy Test Complete\n");
     return 0;
 }
