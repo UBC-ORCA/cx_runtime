@@ -5,7 +5,7 @@
 #include "../../../../research/riscv-tools/cx_runtime/include/ci.h"
 #include "../../../../research/riscv-tools/cx_runtime/zoo/mulacc/mulacc.h"
 
-void state_test() {
+void context_save_restore_test() {
   int a = 3;
   int b = 5;
   int c = 2;
@@ -18,7 +18,7 @@ void state_test() {
   cx_sel_t cx_index;
 
   cx_stctxs_t expected_stctxs = {.sel = {
-                                  .cs = DIRTY,
+                                  .cs = CX_DIRTY,
                                   .error = 0,
                                   .initializer = CX_HW_INIT,
                                   .state_size = 1
@@ -27,8 +27,8 @@ void state_test() {
   int cx_sel_C0 = cx_open(CX_GUID_MULACC, share_C);
   int cx_sel_C1 = cx_open(CX_GUID_MULACC, share_C);
 
-  assert(cx_sel_C0 == 1);
-  assert(cx_sel_C1 == 2);
+  assert(cx_sel_C0 > 0);
+  assert(cx_sel_C1 == cx_sel_C0 + 1);
 
   cx_error_clear();
   cx_sel(cx_sel_C1);
@@ -49,7 +49,7 @@ void state_test() {
   assert( cx_status == expected_stctxs.idx );
 
   cx_context_save();
-  
+
   // accumulators will have been reset
   // filling new state with info
   result = mac(a, b);
@@ -85,7 +85,7 @@ void state_test() {
 
   // checking state status was restored, and set to clean
   cx_status = CX_READ_STATUS();
-  expected_stctxs.sel.cs = CLEAN;
+  expected_stctxs.sel.cs = CX_CLEAN;
   assert( cx_status == expected_stctxs.idx );
 
   cx_error_clear();
@@ -96,13 +96,15 @@ void state_test() {
   cx_status = CX_READ_STATUS();
   assert( cx_status == expected_stctxs.idx );
 
+  cx_close(cx_sel_C0);
+  cx_close(cx_sel_C1);
+
   cx_sel(CX_LEGACY);
 }
 
 int main() {
-    cx_init();
     cx_sel(CX_LEGACY);
-    state_test();
+    context_save_restore_test();
     printf("Context save / restore test complete\n");
 
     return 0;

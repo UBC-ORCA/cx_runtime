@@ -12,6 +12,16 @@ target_ulong HELPER(cx_reg)(CPURISCVState *env, target_ulong cf_id,
                              target_ulong rs1, target_ulong rs2)
 {
 
+    // not sure if these are the right error values to set it to
+    if (env->mcx_selector == CX_INVALID_SELECTOR) {
+        cx_status_t cx_status = {.idx = env->cx_status};
+        cx_status.sel.IV = 1;
+        cx_status.sel.IC = 1;
+        cx_status.sel.IS = 1;
+        env->cx_status = cx_status.idx;
+        return (target_ulong)-1;
+    }
+
     if (GET_CX_CXE(env->mcx_selector) == 1) {
         riscv_raise_exception(env, RISCV_EXCP_ILLEGAL_INST, GETPC());
     }
@@ -22,21 +32,6 @@ target_ulong HELPER(cx_reg)(CPURISCVState *env, target_ulong cf_id,
     uint32_t CX_ID = GET_CX_ID(env->mcx_selector);
     uint32_t STATE_ID = GET_CX_STATE(env->mcx_selector);
     uint32_t VERSION = GET_CX_VERSION(env->mcx_selector);
-
-    // hack for trapping - this should only be called in the cx_reg after cx_sel.
-    if (OPA == 0 && OPB == 0 && OPCODE_ID == 0) {
-        return 0;
-    }
-
-    // not sure if these are the right error values to set it to
-    if (env->mcx_selector == CX_INVALID_SELECTOR) {
-        cx_status_t cx_status = {.idx = env->cx_status};
-        cx_status.sel.IV = 1;
-        cx_status.sel.IC = 1;
-        cx_status.sel.IS = 1;
-        env->cx_status = cx_status.idx;
-        return (target_ulong)-1;
-    }
 
     if (VERSION != 1) {
         cx_status_t cx_status = {.idx = env->cx_status};

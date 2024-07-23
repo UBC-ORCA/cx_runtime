@@ -1,6 +1,5 @@
 # Short Term Objectives
 
-:x: Move static part of cx_map in a device struct, similar to a PCIe device
 
 :x: Fix builds
 
@@ -9,8 +8,6 @@
 :x: Support saving cxu state data thread-specific instead of process-specific
 
 :x: *(Partially completed) Create CX_STATUS CSR to keep track of errors (%2.2.2) 
-
-:x: Document the functionality of cx_{open, close, sel}
 
 :x: Modify QEMU so that the proper CSR addresses can be used
 
@@ -23,9 +20,6 @@
 :x: Create a CI / CD test harness
 
 :x: Add `probe` operation to check if a given cx can properly be accessed
-
-:x: Consider how the user will interact with the `cx_error();` function - when will it be called? 
-    should it be a part of `cx_close();`?
 
 # Completed objectives
 
@@ -54,3 +48,10 @@
 :white_check_mark: rename instances of cfu to cx
 
 :white_check_mark: Add checks to cx_open / cx_close for robustness in multi-threaded scenarios
+
+:white_check_mark: Consider how the user will interact with the `cx_error();` function - when will it be called? 
+    should it be a part of `cx_close();`?
+
+:white_check_mark: Move static part of cx_map in a device struct, similar to a PCIe device
+
+:white_check_mark: Document the functionality of cx_{open, close, sel}

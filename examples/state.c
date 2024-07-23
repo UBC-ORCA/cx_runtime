@@ -56,7 +56,6 @@ void state_test() {
 }
 
 int main() {
-    cx_init();
     cx_sel( CX_LEGACY );
     state_test();
     return 0;

@@ -13,9 +13,6 @@ void cx_init() {
 
 void cx_sel(int cx_index) {
   cx_csr_write(CX_INDEX, cx_index);
-  // TODO (Brandon): This CX_REG_HELPER should not be here for running on hw. It's a hack
-  // for running on qemu.
-  CX_REG_HELPER(0, 0, 0);
 }
 
 int32_t cx_open(cx_guid_t cx_guid, cx_share_t cx_share) {
@@ -36,7 +33,7 @@ void cx_close(cx_sel_t cx_sel)
 {
   int cx_close_error = -1;
   asm volatile (
-    "li a7, 459;        \n\t"  // syscall 459, cx_open
+    "li a7, 458;        \n\t"  // syscall 459, cx_open
     "mv a0, %0;         \n\t"  // a0-a5 are ecall args 
     "ecall;             \n\t"
     "mv %1, a0;         \n\t"
@@ -61,7 +58,7 @@ void cx_deselect_and_close(cx_sel_t cx_sel)
 
 void cx_context_save() {
   register long cx_index asm("a0");
-  register long syscall_id asm("a7") = 460; // cx_context_save
+  register long syscall_id asm("a7") = 459; // cx_context_save
   asm volatile ("ecall  # 0=%0"
     : 
     : "r"(syscall_id)
@@ -71,7 +68,7 @@ void cx_context_save() {
 
 void cx_context_restore() {
   register long cx_index asm("a0");
-  register long syscall_id asm("a7") = 461; // cx_context_restore
+  register long syscall_id asm("a7") = 460; // cx_context_restore
   asm volatile ("ecall  # 0=%0"
     : 
     : "r"(syscall_id)

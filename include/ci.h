@@ -4,6 +4,11 @@
 #ifndef CI_H
 #define CI_H
 
+// ABI
+
+#define __CX__         //(FIXME: compiler builtin)
+#define CX_LEGACY 0
+
 // TYPDEFS
 
 typedef int32_t cx_guid_t;       // global: CX ID, a 128b GUID
@@ -16,20 +21,13 @@ typedef int32_t cx_share_t;      // context sharing permissions
 typedef int32_t cx_sel_t;        // hart: CX selector (value (No CX Table) or index
                                  //       (when there is a CX Table))
 
-typedef uint32_t cx_error_t;      // 
+typedef uint32_t cx_error_t;     //
 
-typedef int32_t cxu_sctx_t;      // per state    
+typedef int32_t cxu_sctx_t;      // per state
 
+// MACROS
 
-// ABI
-
-#define __CX__         //(FIXME: compiler builtin)
-#define CX_LEGACY 0
-
-
-// MACROS                                
-
-// TODO: RESULT 
+// TODO: RESULT
 
 // API
 

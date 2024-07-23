@@ -66,7 +66,6 @@ void my_cx_test()
 
 int main()
 {
-    cx_init(); // ABI rule 1 - Will initialize mcx_selector / cx_index to 0
     cx_sel( CX_LEGACY ); // ABI rule 2 
     my_cx_test();
     return 0;

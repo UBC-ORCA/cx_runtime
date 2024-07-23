@@ -50,6 +50,9 @@
 #define CX_STATE_SIZE_START_INDEX 3
 #define CX_STATE_SIZE_BITS 10
 
+#define CX_NUM_QUEUES_START_INDEX 13
+#define CX_NUM_QUEUES_BITS 4
+
 #define CX_ERROR_START_INDEX 24
 #define CX_ERROR_BITS 8
 
@@ -115,6 +118,9 @@
 #define GET_CX_STATE_SIZE(cx_sel) \
     GET_BITS(cx_sel, CX_STATE_SIZE_START_INDEX, CX_STATE_SIZE_BITS)
 
+#define GET_CX_NUM_QUEUES(cx_sel) \
+    GET_BITS(cx_sel, CX_NUM_QUEUES_START_INDEX, CX_NUM_QUEUES_BITS)
+
 #define GET_CX_ERROR(cx_sel) \
     GET_BITS(cx_sel, CX_ERROR_START_INDEX, CX_ERROR_BITS)
 
@@ -134,7 +140,8 @@ typedef union {
         uint cs          : CX_STATUS_BITS;
         uint initializer : CX_INITIALIZER_BITS;
         uint state_size  : CX_STATE_SIZE_BITS;
-        uint reserved0   : 11;
+        uint num_queues  : CX_NUM_QUEUES_BITS;
+        uint reserved0   : 7;
         uint error       : CX_ERROR_BITS;
      } sel;
       uint idx;
@@ -167,17 +174,17 @@ typedef union {
 } cx_status_t;
 
 enum CX_CS {
-    OFF, 
-    INITIAL, 
-    CLEAN,
-    DIRTY
+    CX_OFF, 
+    CX_INITIAL, 
+    CX_CLEAN,
+    CX_DIRTY
 };
 
-enum SHARE_TYPE {
+typedef enum {
 	EXCLUDED,
 	PROCESS_SHARED,
 	GLOBAL_SHARED
-};
+} CX_SHARE_T;
 
 #define CX_REG_HELPER(cf_id, rs1, rs2)      ({           \
     register int __v;                                    \
