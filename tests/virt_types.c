@@ -181,7 +181,31 @@ void basic_full_virt() {
     uint mcx_selector_A2 = cx_csr_read(MCX_SELECTOR);
     assert( mcx_selector_A1 == mcx_selector_A2 );
 
+    cx_close(cx_sel_A2);
 
+    pid_t pid = fork();
+    assert(pid >= 0);
+    if (pid == 0) {
+        //child
+        cx_sel_A2 = cx_open(CX_GUID_MULACC, CX_FULL_VIRT, cx_sel_A0);
+        assert( cx_sel_A2 > 0 );
+        int cx_sel_A3 = cx_open(CX_GUID_MULACC, CX_FULL_VIRT, -1);
+        assert( cx_sel_A3 > 0 );
+
+        cx_close( cx_sel_A0 );
+        cx_close( cx_sel_A1 );
+        cx_close( cx_sel_A2 );
+        cx_close( cx_sel_A3 );
+
+        exit(EXIT_SUCCESS);
+    } else {
+        cx_sel_A2 = cx_open(CX_GUID_MULACC, CX_FULL_VIRT, -1);
+        assert( cx_sel_A2 == -1 );
+        wait(NULL);
+    }
+
+    cx_close( cx_sel_A0 );
+    cx_close( cx_sel_A1 );
 
 }
 
