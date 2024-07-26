@@ -40,6 +40,7 @@ typedef struct cx_state_info_t {
     // when the counter is 0, we can set the CX_SHARE_T. Until it becomes
     // 0'ed again, we must resepect that all newly opened virtual
     // contexts are of the same share type, or else the cx_open will fail.
+    s32 pid; // Needed for priority 2 and 3 virtualization types
     s32 counter;
 } cx_state_info_t;
 

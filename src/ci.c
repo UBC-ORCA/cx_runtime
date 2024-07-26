@@ -15,15 +15,16 @@ void cx_sel(int cx_index) {
   cx_csr_write(CX_INDEX, cx_index);
 }
 
-int32_t cx_open(cx_guid_t cx_guid, cx_share_t cx_share) {
+int32_t cx_open(cx_guid_t cx_guid, cx_share_t cx_share, cx_sel_t cx_sel) {
 
   register long cx_index asm("a0");
   register long a0 asm("a0") = cx_guid;
   register long a1 asm("a1") = cx_share;
+  register long a2 asm("a2") = cx_sel;
   register long syscall_id asm("a7") = 457; // cx_open
-  asm volatile ("ecall  # 0=%0   1=%1  2=%2  3=%3"
+  asm volatile ("ecall  # 0=%0   1=%1  2=%2  3=%3 4=%4"
     : "=r"(cx_index)
-    : "r"(a0), "r"(a1), "r"(syscall_id)
+    : "r"(a0), "r"(a1), "r"(a2), "r"(syscall_id)
     :
   );
   return cx_index;

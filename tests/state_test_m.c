@@ -19,7 +19,7 @@ void state_test() {
     uint cx_error = cx_error_read();
     assert ( cx_error == 0 );
 
-    int cx_sel_A0 = cx_open(CX_GUID_MULACC, share_A);
+    int cx_sel_A0 = cx_open(CX_GUID_MULACC, share_A, -1);
     assert ( cx_sel_A0 == 0x20000002 );
 
     cx_error_clear();
@@ -58,8 +58,8 @@ void state_test() {
     cx_close(cx_sel_A0);
 
     /* Testing multiple states */
-    int cx_sel_A1 = cx_open(CX_GUID_MULACC, share_A);
-    int cx_sel_A2 = cx_open(CX_GUID_MULACC, share_A);
+    int cx_sel_A1 = cx_open(CX_GUID_MULACC, share_A, -1);
+    int cx_sel_A2 = cx_open(CX_GUID_MULACC, share_A, -1);
     assert( cx_sel_A1 == 0x20000002 );
     assert( cx_sel_A2 == 0x20010002 );
 
@@ -83,7 +83,7 @@ void state_test() {
     uint cx_sel_test = -1;
 
     const int INVALID_CX_GUID = 0;
-    int cx_sel_invalid = cx_open(INVALID_CX_GUID, share_A);
+    int cx_sel_invalid = cx_open(INVALID_CX_GUID, share_A, -1);
     
     assert( cx_sel_invalid == -1 );
     cx_sel( CX_LEGACY );

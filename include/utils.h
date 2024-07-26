@@ -181,9 +181,10 @@ enum CX_CS {
 };
 
 typedef enum {
-	EXCLUDED,
-	PROCESS_SHARED,
-	GLOBAL_SHARED
+	CX_NO_VIRT,
+	CX_INTRA_VIRT,
+	CX_INTER_VIRT,
+    CX_FULL_VIRT
 } CX_SHARE_T;
 
 #define CX_REG_HELPER(cf_id, rs1, rs2)      ({           \
