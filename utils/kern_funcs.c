@@ -141,6 +141,7 @@ int cx_copy_table(struct task_struct *new) {
 			new->mcx_table[i] = prev_cx_sel;
 			continue;
 		}
+
 		cxu_guid_t cxu_id = GET_CX_ID(prev_cx_sel);
 		state_id_t state_id = GET_CX_STATE(prev_cx_sel);
 
@@ -418,5 +419,6 @@ int cx_context_restore(struct task_struct *tsk) {
 
         // 4. Restore index
         cx_csr_write( CX_INDEX, tsk->cx_index );
+
         return 0;
 }

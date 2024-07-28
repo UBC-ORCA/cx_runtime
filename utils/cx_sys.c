@@ -80,14 +80,6 @@ SYSCALL_DEFINE3(cx_open, int, cx_guid, int, cx_share, int, cx_share_sel)
                 cx_init_process(current);
 		csr_write(MCX_TABLE, &current->mcx_table[0]);
         }
-        
-        // 1. Check if we have the resources necessary to open a new entry on the scx_table
-        // Check to see if there is a free cx_sel_table index
-        int cx_index = front(current->cx_table_avail_indices);
-
-        if (cx_index < 1) {
-                return -1;
-        }
 
         int cx_id = -1;
 
@@ -106,6 +98,15 @@ SYSCALL_DEFINE3(cx_open, int, cx_guid, int, cx_share, int, cx_share_sel)
         }
 
         if (cx_share_sel < -1 || cx_share_sel > 1023 || cx_share_sel == 0) {
+                return -1;
+        }
+
+        // 1. Check if we have the resources necessary to open a new entry on the scx_table
+        // Check to see if there is a free cx_sel_table index
+        // TODO: task_lock(current);?
+        int cx_index = front(current->cx_table_avail_indices);
+
+        if (cx_index < 1) {
                 return -1;
         }
 
@@ -203,10 +204,13 @@ SYSCALL_DEFINE3(cx_open, int, cx_guid, int, cx_share, int, cx_share_sel)
                         pr_info("Undefined share type\n");
                         return -1;
                 }
+                if (state_id >= 0) {
+                        dequeue(current->cx_table_avail_indices);
+                }
+                // task_unlock(current);
                 if (state_id < 0) {
                         return -1;
                 }
-                dequeue(current->cx_table_avail_indices);
                 cx_map[cx_id].state_info[state_id].counter++;
                 current->cx_os_state_table[cx_index].counter++;
 
