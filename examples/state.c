@@ -20,8 +20,8 @@ void state_test() {
 
   cx_share_t share_A = 0, share_C = 0;
 
-  int cx_sel_C0 = cx_open(CX_GUID_MULACC, share_C);
-  int cx_sel_C1 = cx_open(CX_GUID_MULACC, share_C);
+  int cx_sel_C0 = cx_open(CX_GUID_MULACC, share_C, -1);
+  int cx_sel_C1 = cx_open(CX_GUID_MULACC, share_C, -1);
 
   printf("cx_sel_C0: %d, cx_sel_C: %d\n", cx_sel_C0, cx_sel_C1);
   printf("a: %d, b: %d\n", a, b);

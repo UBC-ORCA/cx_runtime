@@ -24,8 +24,8 @@ void context_save_restore_test() {
                                   .state_size = 1
                                 }};
 
-  int cx_sel_C0 = cx_open(CX_GUID_MULACC, share_C);
-  int cx_sel_C1 = cx_open(CX_GUID_MULACC, share_C);
+  int cx_sel_C0 = cx_open(CX_GUID_MULACC, share_C, -1);
+  int cx_sel_C1 = cx_open(CX_GUID_MULACC, share_C, -1);
 
   assert(cx_sel_C0 > 0);
   assert(cx_sel_C1 == cx_sel_C0 + 1);

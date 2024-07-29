@@ -83,6 +83,7 @@ int cx_init(void) {
 						cx_map[i].state_info = (cx_state_info_t *) kzalloc(sizeof(cx_state_info_t), GFP_KERNEL);						
 						cx_map[i].state_info[0].counter = 0;
 						cx_map[i].state_info[0].share = -1;
+						cx_map[i].state_info[0].pid = -1;
                 }
                 // stateful cxu
                 else {
@@ -90,6 +91,7 @@ int cx_init(void) {
 						for (int j = 0; j < num_states; j++) {
 							cx_map[i].state_info[j].share = -1;
 							cx_map[i].state_info[j].counter = 0;
+							cx_map[i].state_info[j].pid = -1;
 						}
                         cx_map[i].avail_state_ids = make_queue(num_states);
                 }
@@ -139,18 +141,21 @@ int cx_copy_table(struct task_struct *new) {
 			new->mcx_table[i] = prev_cx_sel;
 			continue;
 		}
+
 		cxu_guid_t cxu_id = GET_CX_ID(prev_cx_sel);
 		state_id_t state_id = GET_CX_STATE(prev_cx_sel);
 
 		cx_share_t cx_share = cx_map[cxu_id].state_info[state_id].share;
-		if (cx_share == EXCLUDED) {
+		// Should check to see if we're sharing an intra virt (not allowed)
+		if (cx_share == -1) {
+			pr_info("stateless\n");
+		} else if (cx_share == CX_NO_VIRT) {
 			pr_info("excluded cx; i: %d, sel: %08x\n", i, prev_cx_sel);
 			return -1;
-		} else if (cx_share == -1) {
-			pr_info("stateless\n");
+		} else if (CX_INTRA_VIRT == -1) {
+			pr_info("intra_virt, should not be cloning?\n");
+			return -1;
 		} else {
-			// TODO: This should be incremented by the counter in the cx_os_state_table
-			// cx_map[cxu_id].state_info[state_id].counter++;
 			csr_write(CX_INDEX, i);
 			uint cx_status = CX_READ_STATUS();
 			save_active_cxu_data(current, i, cx_status);
@@ -248,18 +253,24 @@ int cx_close(struct task_struct *tsk, int cx_sel)
 		kfree(tsk->cx_os_state_table[cx_sel].data);
 		tsk->cx_os_state_table[cx_sel].ctx_status = 0;
 
+		// This should never be above 1 for a stateful CX... 
+		// prehaps bug if it is?
+		if (tsk->cx_os_state_table[cx_sel].counter == 0) {
+			enqueue(tsk->cx_table_avail_indices, cx_sel);
+		}
 		// let the state be used again
 		if (cx_map[cx_id].state_info[state_id].counter == 0) {
+			cx_map[cx_id].state_info[state_id].pid = 0;
+			cx_map[cx_id].state_info[state_id].share = -1;
 			enqueue(cx_map[cx_id].avail_state_ids, state_id);
 		}
-		enqueue(tsk->cx_table_avail_indices, cx_sel);
 
 	// Stateless cx's
 	} else if (cx_map[cx_id].num_states == 0) {
 
 		tsk->cx_os_state_table[cx_sel].counter--;
 		cx_map[cx_id].state_info[0].counter--;
-			
+
 		// Don't clear the cx_selector_table entry unless the counter is at 0
 		if (tsk->cx_os_state_table[cx_sel].counter == 0) {
 			tsk->mcx_table[cx_sel] = CX_INVALID_SELECTOR;
@@ -408,5 +419,6 @@ int cx_context_restore(struct task_struct *tsk) {
 
         // 4. Restore index
         cx_csr_write( CX_INDEX, tsk->cx_index );
+
         return 0;
 }

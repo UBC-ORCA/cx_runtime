@@ -11,6 +11,7 @@
 
 #include <sys/types.h>
 #include <sys/wait.h>
+#include <sys/mman.h>
 
 #include <unistd.h> 
 
@@ -54,7 +55,7 @@ void test_fork_0() {
 
   if (pid == 0) { 
   // child process
-    int cx_sel_C0 = cx_open(CX_GUID_MULACC, EXCLUDED);
+    int cx_sel_C0 = cx_open(CX_GUID_MULACC, CX_NO_VIRT, -1);
     assert(cx_sel_C0 > 0);
     cx_error_clear();
     cx_sel(cx_sel_C0);
@@ -91,7 +92,7 @@ void test_fork_1() {
 
   if (pid == 0) { 
   // child process
-    int cx_sel_C0 = cx_open(CX_GUID_MULACC, EXCLUDED);
+    int cx_sel_C0 = cx_open(CX_GUID_MULACC, CX_NO_VIRT, -1);
     assert(cx_sel_C0 > 0);
     cx_error_clear();
     cx_sel(cx_sel_C0);
@@ -103,7 +104,7 @@ void test_fork_1() {
   
   } else {
   // parent process
-    int cx_sel_C1 = cx_open(CX_GUID_MULACC, EXCLUDED);
+    int cx_sel_C1 = cx_open(CX_GUID_MULACC, CX_NO_VIRT, -1);
     assert(cx_sel_C1 > 0);
     cx_error_clear();
     cx_sel(cx_sel_C1);
@@ -137,7 +138,7 @@ void test_fork_2() {
     perror("fork fail"); 
     exit(1); 
   } else if (pid == 0) {
-    uint cx_sel_C2 = cx_open(CX_GUID_ADDSUB, EXCLUDED);
+    int cx_sel_C2 = cx_open(CX_GUID_ADDSUB, CX_NO_VIRT, -1);
     assert( cx_sel_C2 > 0 );
 
     cx_sel(cx_sel_C2);
@@ -150,8 +151,8 @@ void test_fork_2() {
 
     exit(EXIT_SUCCESS);
   } else {
-    uint cx_sel_C4 = cx_open(CX_GUID_MULDIV, EXCLUDED);
-    uint cx_sel_C5 = cx_open(CX_GUID_ADDSUB, EXCLUDED);
+    int cx_sel_C4 = cx_open(CX_GUID_MULDIV, CX_NO_VIRT, -1);
+    int cx_sel_C5 = cx_open(CX_GUID_ADDSUB, CX_NO_VIRT, -1);
     assert( cx_sel_C4 > 0 );
     assert( cx_sel_C5 > 0 );
 
@@ -196,8 +197,8 @@ void test_fork_3() {
     perror("fork fail"); 
     exit(1); 
   } else if (pid == 0) {
-    uint cx_sel_C1 = cx_open(CX_GUID_MULACC, EXCLUDED);
-    uint cx_sel_C2 = cx_open(CX_GUID_ADDSUB, EXCLUDED);
+    cx_sel_t cx_sel_C1 = cx_open(CX_GUID_MULACC, CX_NO_VIRT, -1);
+    cx_sel_t cx_sel_C2 = cx_open(CX_GUID_ADDSUB, CX_NO_VIRT, -1);
     assert( cx_sel_C1 > 0 );
     assert( cx_sel_C2 > 0 );
 
@@ -224,8 +225,8 @@ void test_fork_3() {
 
     exit(EXIT_SUCCESS);
   } else {
-    uint cx_sel_C4 = cx_open(CX_GUID_MULDIV, EXCLUDED);
-    uint cx_sel_C5 = cx_open(CX_GUID_ADDSUB, EXCLUDED);
+    cx_sel_t cx_sel_C4 = cx_open(CX_GUID_MULDIV, CX_NO_VIRT, -1);
+    cx_sel_t cx_sel_C5 = cx_open(CX_GUID_ADDSUB, CX_NO_VIRT, -1);
     assert( cx_sel_C4 > 0 );
     assert( cx_sel_C5 > 0 );
 
@@ -260,7 +261,7 @@ void complex_fork_test() {
   int32_t state_result;
   cx_sel_t cx_index, cx_index_0;
 
-  int cx_sel_C0 = cx_open(CX_GUID_MULACC, PROCESS_SHARED);
+  int cx_sel_C0 = cx_open(CX_GUID_MULACC, CX_INTER_VIRT, -1);
 
   assert(cx_sel_C0 > 0);
 
@@ -281,8 +282,8 @@ void complex_fork_test() {
     perror("fork fail");
     exit(1);
   } else if (pid == 0) {
-    uint cx_sel_C1 = cx_open(CX_GUID_MULACC, EXCLUDED);
-    uint cx_sel_C2 = cx_open(CX_GUID_ADDSUB, EXCLUDED);
+    cx_sel_t cx_sel_C1 = cx_open(CX_GUID_MULACC, CX_NO_VIRT, -1);
+    cx_sel_t cx_sel_C2 = cx_open(CX_GUID_ADDSUB, CX_NO_VIRT, -1);
     assert( cx_sel_C1 > 0 );
     assert( cx_sel_C2 > 0 );
 
@@ -312,8 +313,8 @@ void complex_fork_test() {
 
     exit(EXIT_SUCCESS);
   } else {
-    uint cx_sel_C4 = cx_open(CX_GUID_MULDIV, EXCLUDED);
-    uint cx_sel_C5 = cx_open(CX_GUID_ADDSUB, EXCLUDED);
+    cx_sel_t cx_sel_C4 = cx_open(CX_GUID_MULDIV, CX_NO_VIRT, -1);
+    cx_sel_t cx_sel_C5 = cx_open(CX_GUID_ADDSUB, CX_NO_VIRT, -1);
     assert( cx_sel_C4 > 0 );
     assert( cx_sel_C5 > 0 );
 
@@ -354,7 +355,7 @@ void use_prev_opened_in_child() {
   int32_t state_result;
   cx_sel_t cx_index, cx_index_0;
 
-  int cx_sel_C0 = cx_open(CX_GUID_MULACC, PROCESS_SHARED);
+  int cx_sel_C0 = cx_open(CX_GUID_MULACC, CX_INTER_VIRT, -1);
 
   assert(cx_sel_C0 > 0);
 
@@ -376,7 +377,7 @@ void use_prev_opened_in_child() {
     exit(1);
   } else if (pid == 0) {
     // child
-    uint cx_sel_C1 = cx_open(CX_GUID_MULACC, EXCLUDED);
+    cx_sel_t cx_sel_C1 = cx_open(CX_GUID_MULACC, CX_NO_VIRT, -1);
     assert( cx_sel_C1 > 0 );
     
     cx_sel(cx_sel_C0);
@@ -396,8 +397,8 @@ void use_prev_opened_in_child() {
 
     exit(EXIT_SUCCESS);
   } else {
-    uint cx_sel_C4 = cx_open(CX_GUID_MULDIV, EXCLUDED);
-    uint cx_sel_C5 = cx_open(CX_GUID_ADDSUB, EXCLUDED);
+    cx_sel_t cx_sel_C4 = cx_open(CX_GUID_MULDIV, CX_NO_VIRT, -1);
+    cx_sel_t cx_sel_C5 = cx_open(CX_GUID_ADDSUB, CX_NO_VIRT, -1);
     assert( cx_sel_C4 > 0 );
     assert( cx_sel_C5 > 0 );
 
@@ -438,7 +439,7 @@ void use_prev_opened_in_parent() {
   int32_t state_result;
   cx_sel_t cx_index, cx_index_0;
 
-  int cx_sel_C0 = cx_open(CX_GUID_MULACC, PROCESS_SHARED);
+  int cx_sel_C0 = cx_open(CX_GUID_MULACC, CX_INTER_VIRT, -1);
 
   assert(cx_sel_C0 > 0);
 
@@ -459,8 +460,8 @@ void use_prev_opened_in_parent() {
     perror("fork fail");
     exit(1);
   } else if (pid == 0) {
-    uint cx_sel_C4 = cx_open(CX_GUID_MULDIV, EXCLUDED);
-    uint cx_sel_C5 = cx_open(CX_GUID_ADDSUB, EXCLUDED);
+    cx_sel_t cx_sel_C4 = cx_open(CX_GUID_MULDIV, CX_NO_VIRT, -1);
+    cx_sel_t cx_sel_C5 = cx_open(CX_GUID_ADDSUB, CX_NO_VIRT, -1);
     assert( cx_sel_C4 > 0 );
     assert( cx_sel_C5 > 0 );
 
@@ -484,7 +485,7 @@ void use_prev_opened_in_parent() {
     exit(EXIT_SUCCESS);
   } else {
     // child
-    uint cx_sel_C1 = cx_open(CX_GUID_MULACC, EXCLUDED);
+    cx_sel_t cx_sel_C1 = cx_open(CX_GUID_MULACC, CX_NO_VIRT, -1);
     assert( cx_sel_C1 > 0 );
     
     cx_sel(cx_sel_C0);
@@ -523,7 +524,7 @@ void use_prev_opened_in_parent_and_child() {
   int32_t state_result;
   cx_sel_t cx_index, cx_index_0;
 
-  int cx_sel_C0 = cx_open(CX_GUID_MULACC, PROCESS_SHARED);
+  int cx_sel_C0 = cx_open(CX_GUID_MULACC, CX_INTER_VIRT, -1);
 
   assert(cx_sel_C0 > 0);
 
@@ -544,8 +545,8 @@ void use_prev_opened_in_parent_and_child() {
     perror("fork fail");
     exit(1);
   } else if (pid == 0) {
-    uint cx_sel_C4 = cx_open(CX_GUID_MULDIV, EXCLUDED);
-    uint cx_sel_C5 = cx_open(CX_GUID_ADDSUB, EXCLUDED);
+    cx_sel_t cx_sel_C4 = cx_open(CX_GUID_MULDIV, CX_NO_VIRT, -1);
+    cx_sel_t cx_sel_C5 = cx_open(CX_GUID_ADDSUB, CX_NO_VIRT, -1);
     assert( cx_sel_C4 > 0 );
     assert( cx_sel_C5 > 0 );
 
@@ -579,7 +580,7 @@ void use_prev_opened_in_parent_and_child() {
     exit(EXIT_SUCCESS);
   } else {
     // child
-    uint cx_sel_C1 = cx_open(CX_GUID_MULACC, EXCLUDED);
+    cx_sel_t cx_sel_C1 = cx_open(CX_GUID_MULACC, CX_NO_VIRT, -1);
     assert( cx_sel_C1 > 0 );
     
     cx_sel(cx_sel_C0);
@@ -612,6 +613,65 @@ void use_prev_opened_in_parent_and_child() {
 }
 
 
+void close_unclosed_cx() {
+
+  cx_error_t cx_error;
+  uint cx_status;
+  int32_t state_result;
+  cx_sel_t cx_index, cx_index_0;
+
+  cx_sel_t cx_sel_C0 = cx_open(CX_GUID_MULACC, CX_INTER_VIRT, -1);
+  assert(cx_sel_C0 > 0);
+
+  cx_sel_t cx_sel_C1;
+
+  int *glob_counter;
+  glob_counter = mmap(NULL, sizeof *glob_counter, PROT_READ | PROT_WRITE, 
+                    MAP_SHARED | MAP_ANONYMOUS, -1, 0);
+  *glob_counter = 0;
+
+  pid_t pid = fork();
+  if (pid < 0) {
+    perror("fork fail");
+    exit(1);
+  } else if (pid == 0) {
+    // child
+    cx_sel_t cx_sel_C4 = cx_open(CX_GUID_MULACC, CX_NO_VIRT, -1);
+    if (cx_sel_C4 > 0)
+      *glob_counter += 1;
+
+    exit(EXIT_SUCCESS);
+  } else {
+    cx_sel_C1 = cx_open(CX_GUID_MULACC, CX_NO_VIRT, -1);
+    if (cx_sel_C1 > 0)
+      *glob_counter += 1;
+
+    int status;
+    // Wait for child
+    wait(NULL);
+    assert(status == 0);
+    printf("counter: %d\n", *glob_counter);
+    assert(*glob_counter == 1);
+    munmap(glob_counter, sizeof *glob_counter);
+  }
+  cx_sel_t cx_sel_C5 = cx_open(CX_GUID_MULACC, CX_NO_VIRT, -1);
+  assert( cx_sel_C5 < 0 );
+
+  cx_close(cx_sel_C0);
+  cx_close(cx_sel_C5);
+
+  cx_sel_t cx_sel_C6 = cx_open(CX_GUID_MULACC, CX_NO_VIRT, -1);
+  cx_sel_t cx_sel_C7 = cx_open(CX_GUID_MULACC, CX_NO_VIRT, -1);
+
+  assert(cx_sel_C6 > 0);
+  assert(cx_sel_C7 > 0);
+
+  cx_close(cx_sel_C6);
+  cx_close(cx_sel_C7);
+
+  cx_sel(CX_LEGACY);
+}
+
 
 int main() {
     // for (int i = 0; i < 1000; i++) {
@@ -625,6 +685,7 @@ int main() {
       use_prev_opened_in_child();
       use_prev_opened_in_parent();
       use_prev_opened_in_parent_and_child();
+      // close_unclosed_cx();
     // }
 
     printf("Context Copy Test Complete\n");

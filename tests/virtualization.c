@@ -11,7 +11,6 @@ void virtualization_test() {
   int c = 2;
   int result;
 
-  cx_share_t share_A = 0, share_C = PROCESS_SHARED, exclusive = EXCLUDED;
   cx_error_t cx_error;
   uint cx_status;
   int32_t state_result;
@@ -23,7 +22,7 @@ void virtualization_test() {
                                   .initializer = CX_HW_INIT,
                                   .state_size = 1
                                 }};
-  int cx_sel_c1 = cx_open(CX_GUID_MULACC, share_C);
+  int cx_sel_c1 = cx_open(CX_GUID_MULACC, CX_INTRA_VIRT, -1);
 
   assert(cx_sel_c1 > 0);
 
@@ -40,7 +39,7 @@ void virtualization_test() {
   cx_status = CX_READ_STATUS();
   assert( cx_status == expected_stctxs.idx );
 
-  int cx_sel_c2 = cx_open(CX_GUID_MULACC, share_C);
+  int cx_sel_c2 = cx_open(CX_GUID_MULACC, CX_INTRA_VIRT, -1);
   assert(cx_sel_c2 > 0);
 
   cx_sel(cx_sel_c2);
@@ -51,7 +50,7 @@ void virtualization_test() {
   cx_status = CX_READ_STATUS();
   assert( cx_status == expected_stctxs.idx );
 
-  int cx_sel_c3 = cx_open(CX_GUID_MULACC, share_C);
+  int cx_sel_c3 = cx_open(CX_GUID_MULACC, CX_INTRA_VIRT, -1);
   assert(cx_sel_c3 > 0);
 
   cx_sel(cx_sel_c3);
@@ -79,18 +78,18 @@ void virtualization_test() {
   cx_status = CX_READ_STATUS();
   assert( cx_status == expected_stctxs.idx );
   
-  cx_sel_t cx_sel_c4 = cx_open(CX_GUID_MULACC, exclusive);
+  cx_sel_t cx_sel_c4 = cx_open(CX_GUID_MULACC, CX_INTRA_VIRT, -1);
   assert( cx_sel_c4 > 0 );
 
   // Should still be using the same state as before
   result = mac(a, c);
   assert( result == 37 );
 
-  cx_sel_t cx_sel_c5 = cx_open(CX_GUID_MULACC, exclusive);
+  cx_sel_t cx_sel_c5 = cx_open(CX_GUID_MULACC, CX_NO_VIRT, -1);
   // Shouldn't be able to open another exclusive cx
   assert( cx_sel_c5 == -1 );
 
-  cx_sel_t cx_sel_c6 = cx_open(CX_GUID_MULACC, share_C);
+  cx_sel_t cx_sel_c6 = cx_open(CX_GUID_MULACC, CX_INTRA_VIRT, -1);
   assert( cx_sel_c6 > 0 );
 
 
@@ -118,7 +117,7 @@ void virtualization_test() {
 
   // Making sure that the final close of the shared selector 
   // frees up the state.
-  cx_sel_t cx_sel_c7 = cx_open(CX_GUID_MULACC, exclusive);
+  cx_sel_t cx_sel_c7 = cx_open(CX_GUID_MULACC, CX_NO_VIRT, -1);
   assert( cx_sel_c7 > 0 );
 
   cx_close( cx_sel_c7 );

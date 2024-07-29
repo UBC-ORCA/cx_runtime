@@ -87,7 +87,7 @@ void pext_test() {
     u32 packed_i16_0, packed_i16_1;
     u32 result;
 
-    cx_sel_t cx_sel_0 = cx_open( CX_GUID_PEXT, 0 );
+    cx_sel_t cx_sel_0 = cx_open( CX_GUID_PEXT, 0, -1 );
     assert(cx_sel_0 > 0);
 
     cx_sel( cx_sel_0 );

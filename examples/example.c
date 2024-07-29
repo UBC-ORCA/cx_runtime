@@ -8,7 +8,7 @@
 
 cx_sel_t test_cx_open( cx_guid_t my_guid, cx_share_t my_share )
 {
-    cx_sel_t my_sel = cx_open( my_guid, my_share );
+    cx_sel_t my_sel = cx_open( my_guid, my_share, -1 );
     if( my_sel >= 0 ) return my_sel;
 
     fprintf( stderr, "error: cx_open guid %08x share %d\n", my_guid, my_share );
