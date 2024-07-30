@@ -27,7 +27,9 @@ static inline int32_t mac_func(int32_t a, int32_t b, int32_t state_id)
     return acc[state_id];
 }
 
-static inline int32_t reset_func(int32_t a, int32_t b, int32_t state_id)
+static inline int32_t reset_func(__attribute__((unused)) int32_t a,
+                                 __attribute__((unused)) int32_t b, 
+                                 int32_t state_id)
 {
     acc[state_id] = 0;
     return 0;
