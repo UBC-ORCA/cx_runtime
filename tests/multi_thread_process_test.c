@@ -200,14 +200,31 @@ void mat_check_equal(int **A, int **B, int m, int n) {
   }
 }
 
-void threaded_matmul(int m, int n, int nThreads, cx_sel_t cx_sel_A0) {
+void free_mat(int **A, int n) {
+  for (int i = 0; i < n; i++) {
+    free(A[i]);
+  }
+  free(A);
+}
+
+void free_thread_args(thread_args **targs, int nThreads) {
+  free_mat(targs[0]->A, targs[0]->n);
+  free_mat(targs[0]->B, targs[0]->n);
+  free_mat(targs[0]->C, targs[0]->n);
+  for (int i = 0; i < nThreads; i++) {
+    free(targs[i]);
+  }
+  free(targs);
+}
+
+void threaded_matmul(int m, int n, int nThreads, cx_sel_t cx_sel_A0, CX_SHARE_T CX_SHARE) {
     pthread_t tid[ nThreads ];
     void *ret;
 
     thread_args **mat_args = init_thread_args(m, n, nThreads);
 
     for (int i = 0; i < nThreads; i++) {
-      cx_sel_t cx_sel_thread = cx_open(CX_GUID_MULACC, CX_FULL_VIRT, cx_sel_A0);
+      cx_sel_t cx_sel_thread = cx_open(CX_GUID_MULACC, CX_SHARE, cx_sel_A0);
       mat_args[i]->cx_sel = cx_sel_thread;
       assert( pthread_create(&tid[i], NULL, mm_worker, (void *)mat_args[i]) == 0 );
     }
@@ -219,14 +236,18 @@ void threaded_matmul(int m, int n, int nThreads, cx_sel_t cx_sel_A0) {
     int **C_ref = alloc_mat(m, n);
     scalar_matmul(mat_args[0]->A, mat_args[0]->B, C_ref, m, n);
     mat_check_equal(mat_args[0]->C, C_ref, m, n);
-    cx_close(cx_sel_A0);
 
+    // cleanup
+    cx_close(cx_sel_A0);
     for (int i = 0; i < nThreads; i++) {
       cx_close(mat_args[i]->cx_sel);
     }
+    free_thread_args(mat_args, nThreads);
+    free_mat(C_ref, n);
+    free(ret);
 }
 
-void matmul_multiP_multiT() {
+void matmul_multiP_multiT_full() {
   cx_error_t cx_error;
   uint cx_status;
   int32_t state_result;
@@ -241,28 +262,57 @@ void matmul_multiP_multiT() {
 
   if (pid == 0) { 
   // child process
-    threaded_matmul(SIZE_0, SIZE_0, NTHREAD_0, cx_sel_A0);
+    threaded_matmul(SIZE_0, SIZE_0, NTHREAD_0, cx_sel_A0, CX_FULL_VIRT);
     exit(EXIT_SUCCESS);
   
   } else {
   // parent process
-    threaded_matmul(SIZE_1, SIZE_1, NTHREAD_1, cx_sel_A0);
+    threaded_matmul(SIZE_1, SIZE_1, NTHREAD_1, cx_sel_A0, CX_FULL_VIRT);
     int status;
     // Wait for child
     waitpid(pid, &status, 0);
     assert(status == 0);
   }
   cx_sel(CX_LEGACY);
-
-  return; 
 }
 
+
+void matmul_multiP_multiT_intra() {
+  cx_error_t cx_error;
+  uint cx_status;
+  int32_t state_result;
+  cx_sel_t cx_index, cx_index_0;
+
+  pid_t pid = fork();
+  assert(pid >= 0);
+
+  if (pid == 0) { 
+  // child process
+    cx_sel_t cx_sel_A0 = cx_open(CX_GUID_MULACC, CX_INTRA_VIRT, -1);
+    assert(cx_sel_A0 > 0);
+    cx_sel(cx_sel_A0);
+    threaded_matmul(SIZE_0, SIZE_0, NTHREAD_0, cx_sel_A0, CX_INTRA_VIRT);
+    exit(EXIT_SUCCESS);
+  
+  } else {
+  // parent process
+    cx_sel_t cx_sel_A0 = cx_open(CX_GUID_MULACC, CX_INTRA_VIRT, -1);
+    assert(cx_sel_A0 > 0);
+    cx_sel(cx_sel_A0);
+    threaded_matmul(SIZE_1, SIZE_1, NTHREAD_1, cx_sel_A0, CX_INTRA_VIRT);
+    int status;
+    // Wait for child
+    waitpid(pid, &status, 0);
+    assert(status == 0);
+  }
+  cx_sel(CX_LEGACY);
+}
 
 int main() {
     cx_sel(CX_LEGACY);
     // test_matmul();
-    // basic_multiP_multiT();
-    matmul_multiP_multiT();
+    matmul_multiP_multiT_intra();
+    matmul_multiP_multiT_full();
     printf("Finished Multi-thread Multi-process test\n");
     return 0;
 }
