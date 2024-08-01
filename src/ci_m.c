@@ -16,6 +16,19 @@
 #define CX_AVAIL_STATE 1
 #define CX_UNAVAIL_STATE 0
 
+typedef struct cx_state_data_t {
+    int status;
+    uint *data;
+} cx_state_data_t;
+
+typedef struct cx_state_info_t {
+    CX_SHARE_T share;
+    // when the counter is 0, we can set the CX_SHARE_T. Until it becomes
+    // 0'ed again, we must respect that all newly opened virtual
+    // contexts are of the same share type, or else the cx_open will fail.
+    int counter;
+} cx_state_info_t;
+
 typedef struct {
   // static
   int cx_guid;
@@ -23,11 +36,11 @@ typedef struct {
 
   // dynamic
   int *avail_state_ids;
+  cx_state_info_t *state_info;
 } cx_entry_m_t;
 
 typedef cx_entry_m_t cx_map_t;
 cx_map_t cx_map[NUM_CX];
-
 
 static inline cx_sel_t gen_cx_sel(cx_id_t cx_id, state_id_t state_id, 
                                   int32_t cx_version) 
@@ -78,8 +91,11 @@ void cx_init() {
 
     for (int i = 0; i < NUM_CX; i++) {
         cx_map[i].avail_state_ids = malloc(cx_map[i].num_states * sizeof(int));
+        cx_map[i].state_info = malloc(cx_map[i].num_states * sizeof(cx_state_info_t));
         for (int j = 0; j < cx_map[i].num_states; j++) {
             cx_map[i].avail_state_ids[j] = CX_AVAIL_STATE;
+            cx_map[i].state_info[j].counter = 0;
+            cx_map[i].state_info[j].share = -1;
         }
     }
 }
@@ -88,7 +104,7 @@ void cx_sel(int cx_sel) {
    cx_csr_write(MCX_SELECTOR, cx_sel);
 }
 
-int32_t cx_open(cx_guid_t cx_guid, cx_share_t cx_share) {
+int32_t cx_open(cx_guid_t cx_guid, cx_share_t cx_share, cx_sel_t user_cx_sel) {
     cx_id_t cx_id = -1;
     for (int j = 0; j < NUM_CX; j++) {
         if (cx_map[j].cx_guid == cx_guid) {
@@ -127,14 +143,14 @@ int32_t cx_open(cx_guid_t cx_guid, cx_share_t cx_share) {
         cx_map[cx_id].avail_state_ids[state_id] = CX_UNAVAIL_STATE;
 
         uint sw_init = GET_CX_INITIALIZER(status);
-        CX_WRITE_STATUS(INITIAL);
+        CX_WRITE_STATUS(CX_INITIAL);
 
         // hw required to set to dirty after init, while sw does it explicitly
         if (sw_init) {
             for (int i = 0; i < state_size; i++) {
                 CX_WRITE_STATE(i, 0);
             }
-            CX_WRITE_STATUS(DIRTY);
+            CX_WRITE_STATUS(CX_DIRTY);
         }
 
         cx_sel(prev_sel);
@@ -146,6 +162,9 @@ int32_t cx_open(cx_guid_t cx_guid, cx_share_t cx_share) {
 void cx_close(cx_sel_t cx_sel)
 {
   cx_id_t cx_id = GET_CX_ID(cx_sel);
+  if (cx_id >= NUM_CX) {
+    return;
+  }
   // Stateless cx's
   if (cx_map[cx_id].num_states == 0) {
     return;
@@ -153,6 +172,10 @@ void cx_close(cx_sel_t cx_sel)
   } else {
     state_id_t state_id = GET_CX_STATE(cx_sel);
     cx_map[cx_id].avail_state_ids[state_id] = CX_AVAIL_STATE;
+    cx_map[cx_id].state_info[state_id].counter--;
+    if (cx_map[cx_id].state_info[state_id].counter == 0) {
+        cx_map[cx_id].state_info[state_id].share = -1;
+    }
   }
 }
 
