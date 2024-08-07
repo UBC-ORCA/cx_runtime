@@ -61,6 +61,8 @@ void state_test() {
     int cx_sel_A2 = cx_open(CX_GUID_MULACC, CX_NO_VIRT, -1);
     assert( cx_sel_A1 == 0x20000002 );
     assert( cx_sel_A2 == 0x20010002 );
+    int cx_sel_A3 = cx_open(CX_GUID_MULACC, CX_NO_VIRT, -1);
+    assert( cx_sel_A3 == -1 );
 
     cx_error_clear();
     cx_sel(cx_sel_A1);
