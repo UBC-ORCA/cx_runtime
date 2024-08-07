@@ -20,8 +20,8 @@ QEMU-SRC := $(SRC)/cx-qemu
 
 ZOO-DIR := zoo
 
-cx_objects := $(BDIR)/ci.o $(BDIR)/queue.o $(BDIR)/parser.o
-cx_objects_m := $(BDIR)/ci_m.o $(BDIR)/queue.o $(BDIR)/parser.o
+cx_objects := $(BDIR)/ci.o $(BDIR)/queue.o 
+cx_objects_m := $(BDIR)/ci_m.o $(BDIR)/queue.o 
 cx_libraries := $(BDIR)/addsub.o $(BDIR)/muldiv.o $(BDIR)/mulacc.o $(BDIR)/p-ext.o
 cx_helpers := $(QEMU-BDIR)/addsub_func.o $(QEMU-BDIR)/muldiv_func.o $(QEMU-BDIR)/mulacc_func.o $(QEMU-BDIR)/p-ext_func.o 
 qemu_objects := $(cx_helpers) $(QEMU-BDIR)/exports.o
@@ -83,11 +83,6 @@ $(BDIR)/mulacc.o: $(ZOO-DIR)/mulacc/mulacc.c $(ZOO-DIR)/mulacc/mulacc.h
 $(BDIR)/p-ext.o: $(ZOO-DIR)/p-ext/p-ext.c $(ZOO-DIR)/p-ext/p-ext.h
 	$(CC) -c $< -o $@
 
-
-###########   Parser   ###########
-
-$(BDIR)/parser.o: $(SRC)/parser.c $(IDIR)/parser.h | $(LDIR)
-	$(CC) -c $< -o $@
 
 ###########   Building Executeable   ###########
 example: examples/example.c $(LDIR)/libci.a
