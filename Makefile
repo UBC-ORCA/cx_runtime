@@ -11,7 +11,7 @@ BDIR := build
 LDIR := $(BDIR)/lib
 IDIR := include
 SRC  := src
-TEST := test
+TEST := tests
 
 QEMU-BDIR := build-qemu
 QEMU-LDIR := $(QEMU-BDIR)/lib
@@ -20,8 +20,8 @@ QEMU-SRC := $(SRC)/cx-qemu
 
 ZOO-DIR := zoo
 
-cx_objects := $(BDIR)/ci.o $(BDIR)/queue.o 
-cx_objects_m := $(BDIR)/ci_m.o $(BDIR)/queue.o 
+cx_objects := $(BDIR)/ci.o
+cx_objects_m := $(BDIR)/ci_m.o
 cx_libraries := $(BDIR)/addsub.o $(BDIR)/muldiv.o $(BDIR)/mulacc.o $(BDIR)/p-ext.o
 cx_helpers := $(QEMU-BDIR)/addsub_func.o $(QEMU-BDIR)/muldiv_func.o $(QEMU-BDIR)/mulacc_func.o $(QEMU-BDIR)/p-ext_func.o 
 qemu_objects := $(cx_helpers) $(QEMU-BDIR)/exports.o
@@ -96,23 +96,11 @@ qemu: example
 	-initrd ~/Documents/linux_rv32/initramfs/initramfs.cpio.gz \
 	-append "console=ttyS0"
 
-### TODO: Modify spike to execute cx instructions
-spike: example
-	${RISCV}/riscv-gnu-toolchain/spike/build/spike --cxs=0,1 --isa=rv32imav --dump-dts ${RISCV}/riscv-gnu-toolchain/pk/build/pk $^
-# ${RISCV}/riscv-gnu-toolchain/pk/build/pk $^
-
-
 ###########   tests   ###########
-test: stateless_test stateful_test cx_table_test
 
-stateless_test: $(TEST)/stateless_test.c $(LDIR)/libci.a
-	$(CC) -march=rv32imav -mabi=ilp32 $< $(cx_libraries) -L$(LDIR) -lci -O2 -o $@
+state_test_m: $(TEST)/state_test_m.c
+	$(CC) -static $< -o state_test_m -L $(LDIR) -lci_m
 
-stateful_test: $(TEST)/stateful_test.c $(LDIR)/libci.a
-	$(CC) -march=rv32imav -mabi=ilp32 $< $(cx_libraries) -L$(LDIR) -lci -O2 -o $@
-
-cx_table_test: $(TEST)/cx_table_test.c $(LDIR)/libci.a
-	$(CC) -march=rv32imav -mabi=ilp32 $< $(cx_libraries) -L$(LDIR) -lci -O2 -o $@
 
 ###########   Clean build   ###########
 clean:
