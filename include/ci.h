@@ -17,6 +17,7 @@ typedef int32_t cx_id_t;         // system: CXU index
 
 typedef int32_t state_id_t;      // system: state index
 typedef int32_t cx_share_t;      // context sharing permissions
+typedef int32_t cx_virt_t;       // context virtualization permissions
 
 typedef int32_t cx_sel_t;        // hart: CX selector (value (No CX Table) or index
                                  //       (when there is a CX Table))
