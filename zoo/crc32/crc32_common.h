@@ -1,0 +1,7 @@
+#ifndef CRC32_COMMON_H
+#define CRC32_COMMON_H
+
+#define CX_GUID_CRC32 0
+#define CX_CRC32_NUM_STATES 0
+
+#endif  // CRC32_COMMON_H

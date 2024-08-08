@@ -11,6 +11,7 @@
 #include "../zoo/muldiv/muldiv_common.h"
 #include "../zoo/addsub/addsub_common.h"
 #include "../zoo/p-ext/p-ext_common.h"
+#include "../zoo/crc32/crc32_common.h"
 
 #define CX_AVAIL_STATE 1
 #define CX_UNAVAIL_STATE 0
@@ -67,11 +68,13 @@ void cx_init() {
     cx_map[1].cx_guid = CX_GUID_ADDSUB;
     cx_map[2].cx_guid = CX_GUID_MULACC;
     cx_map[3].cx_guid = CX_GUID_PEXT;
+    cx_map[4].cx_guid = CX_GUID_CRC32;
 
     cx_map[0].num_states = CX_MULDIV_NUM_STATES;
     cx_map[1].num_states = CX_ADDSUB_NUM_STATES;
     cx_map[2].num_states = CX_MULACC_NUM_STATES;
     cx_map[3].num_states = CX_PEXT_NUM_STATES;
+    cx_map[4].num_states = CX_CRC32_NUM_STATES;
 
     for (int i = 0; i < NUM_CX; i++) {
         cx_map[i].avail_state_ids = malloc(cx_map[i].num_states * sizeof(int));
