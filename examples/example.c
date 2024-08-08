@@ -6,12 +6,12 @@
 #include "../zoo/addsub/addsub.h"
 #include "../zoo/muldiv/muldiv.h"
 
-cx_sel_t test_cx_open( cx_guid_t my_guid, cx_share_t my_share )
+cx_sel_t test_cx_open( cx_guid_t my_guid, cx_virt_t cx_virt )
 {
-    cx_sel_t my_sel = cx_open( my_guid, my_share, -1 );
+    cx_sel_t my_sel = cx_open( my_guid, cx_virt, -1 );
     if( my_sel >= 0 ) return my_sel;
 
-    fprintf( stderr, "error: cx_open guid %08x share %d\n", my_guid, my_share );
+    fprintf( stderr, "error: cx_open guid %08x share %d\n", my_guid, cx_virt );
     exit( -1 );
 }
 
@@ -30,10 +30,8 @@ void my_cx_test()
     
     int32_t result = 0;
 
-    cx_share_t my_shareA=0, my_shareB=0;
-
-    cx_sel_t my_selA = test_cx_open( CX_GUID_ADDSUB, my_shareA );
-    cx_sel_t my_selB = test_cx_open( CX_GUID_MULDIV, my_shareB );
+    cx_sel_t my_selA = test_cx_open( CX_GUID_ADDSUB, CX_NO_VIRT );
+    cx_sel_t my_selB = test_cx_open( CX_GUID_MULDIV, CX_NO_VIRT );
 
     printf("cx_sel_AS: %d, cx_sel_MD: %d\n", my_selA, my_selB);
 
@@ -66,6 +64,7 @@ void my_cx_test()
 
 int main()
 {
+    cx_init();
     cx_sel( CX_LEGACY ); // ABI rule 2 
     my_cx_test();
     return 0;
