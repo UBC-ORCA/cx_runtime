@@ -1,10 +1,10 @@
 #ifndef UTILS_H
 #define UTILS_H
 
-#define MCX_SELECTOR  0x012 // should be 0xBC0
-#define CX_INDEX      0x011 // should be 0x800
-#define CX_STATUS     0x801 // should be 0x801, was using 0x013
-#define MCX_TABLE     0x145 // should be 0xBC1
+#define MCX_SELECTOR  0xBC0 
+#define CX_INDEX      0x800 
+#define CX_STATUS     0x801
+#define MCX_TABLE     0xBC1 
 
 #define CUSTOM0 0xb
 #define CUSTOM1 0x2b
