@@ -1,6 +1,5 @@
 .PHONY: clean machine
 
-# CC = ${RISCV}/llvm/build-linux/bin/clang
 CC = riscv32-unknown-elf-gcc
 AR = riscv32-unknown-elf-ar
 

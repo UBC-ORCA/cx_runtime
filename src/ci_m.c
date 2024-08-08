@@ -3,15 +3,13 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include <stdlib.h>
+#include <stdio.h>
 
 #include "../include/ci.h"
 #include "../include/utils.h"
 
-#include "../zoo/mulacc/mulacc_common.h"
-#include "../zoo/muldiv/muldiv_common.h"
-#include "../zoo/addsub/addsub_common.h"
-#include "../zoo/p-ext/p-ext_common.h"
 #include "../zoo/crc32/crc32_common.h"
+#include "../zoo/vector/vector_common.h"
 
 #define CX_AVAIL_STATE 1
 #define CX_UNAVAIL_STATE 0
@@ -62,19 +60,13 @@ void cx_init() {
     cx_csr_write(MCX_SELECTOR, 0);
     
     // 0 initialize the cx_status csr
-    cx_csr_write(CX_STATUS, 0);
+    // cx_csr_write(CX_STATUS, 0);
 
-    cx_map[0].cx_guid = CX_GUID_MULDIV;
-    cx_map[1].cx_guid = CX_GUID_ADDSUB;
-    cx_map[2].cx_guid = CX_GUID_MULACC;
-    cx_map[3].cx_guid = CX_GUID_PEXT;
-    cx_map[4].cx_guid = CX_GUID_CRC32;
+    cx_map[0].cx_guid = CX_GUID_CRC32;
+    cx_map[1].cx_guid = CX_GUID_VECTOR;
 
-    cx_map[0].num_states = CX_MULDIV_NUM_STATES;
-    cx_map[1].num_states = CX_ADDSUB_NUM_STATES;
-    cx_map[2].num_states = CX_MULACC_NUM_STATES;
-    cx_map[3].num_states = CX_PEXT_NUM_STATES;
-    cx_map[4].num_states = CX_CRC32_NUM_STATES;
+    cx_map[0].num_states = CX_CRC32_NUM_STATES;
+    cx_map[1].num_states = CX_VECTOR_NUM_STATES;
 
     for (int i = 0; i < NUM_CX; i++) {
         cx_map[i].avail_state_ids = malloc(cx_map[i].num_states * sizeof(int));
@@ -115,29 +107,29 @@ int32_t cx_open(cx_guid_t cx_guid, cx_virt_t cx_virt, cx_sel_t virtual_sel) {
 
         cx_sel_t new_cx_sel = gen_cx_sel(cx_id, state_id, MCX_VERSION);
 
-        cx_sel(new_cx_sel);
+        // cx_sel(new_cx_sel);
 
-        uint status = CX_READ_STATUS();
-        uint state_size = GET_CX_STATE_SIZE(status);
+        // uint status = CX_READ_STATUS();
+        // uint state_size = GET_CX_STATE_SIZE(status);
 
-        if (state_size > 1023 || state_size < 0) {
-            return -1;
-        }
+        // if (state_size > 1023 || state_size < 0) {
+        //     return -1;
+        // }
 
-        cx_map[cx_id].avail_state_ids[state_id] = CX_UNAVAIL_STATE;
+        // cx_map[cx_id].avail_state_ids[state_id] = CX_UNAVAIL_STATE;
 
-        uint sw_init = GET_CX_INITIALIZER(status);
-        CX_WRITE_STATUS(CX_INITIAL);
+        // uint sw_init = GET_CX_INITIALIZER(status);
+        // CX_WRITE_STATUS(CX_INITIAL);
 
-        // hw required to set to dirty after init, while sw does it explicitly
-        if (sw_init) {
-            for (int i = 0; i < state_size; i++) {
-                CX_WRITE_STATE(i, 0);
-            }
-            CX_WRITE_STATUS(CX_DIRTY);
-        }
+        // // hw required to set to dirty after init, while sw does it explicitly
+        // if (sw_init) {
+        //     for (int i = 0; i < state_size; i++) {
+        //         CX_WRITE_STATE(i, 0);
+        //     }
+        //     CX_WRITE_STATUS(CX_DIRTY);
+        // }
 
-        cx_sel(prev_sel);
+        // cx_sel(prev_sel);
         return new_cx_sel;
     }
 }
