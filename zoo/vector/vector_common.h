@@ -1,0 +1,7 @@
+#ifndef RGB2LUMA_COMMON_H
+#define RGB2LUMA_COMMON_H
+
+#define CX_GUID_VECTOR 1
+#define CX_VECTOR_NUM_STATES 8
+
+#endif  // RGB2LUMA_COMMON_H
