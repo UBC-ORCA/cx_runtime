@@ -154,7 +154,9 @@ void cx_close(cx_sel_t cx_sel)
 }
 
 cx_error_t cx_error_read() {
-  return cx_csr_read(CX_STATUS);
+  cx_error_t cx_status = cx_csr_read(CX_STATUS);
+  cx_csr_write(CX_STATUS, 0);
+  return cx_status;
 }
 
 void cx_error_clear() {
