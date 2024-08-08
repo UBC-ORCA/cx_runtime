@@ -81,7 +81,7 @@ void cx_init() {
     }
 }
 
-void cx_sel(int cx_sel) {
+void cx_sel(cx_sel_t cx_sel) {
    cx_csr_write(MCX_SELECTOR, cx_sel);
 }
 
