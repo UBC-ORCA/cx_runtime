@@ -20,7 +20,7 @@ QEMU-SRC := $(SRC)/cx-qemu
 
 ZOO-DIR := zoo
 
-cx_objects := $(BDIR)/ci.o $(BDIR)/queue.o 
+cx_objects := $(BDIR)/ci.o $(BDIR)/queue.o
 cx_objects_m := $(BDIR)/ci_m.o $(BDIR)/queue.o 
 cx_libraries := $(BDIR)/addsub.o $(BDIR)/muldiv.o $(BDIR)/mulacc.o $(BDIR)/p-ext.o
 cx_helpers := $(QEMU-BDIR)/addsub_func.o $(QEMU-BDIR)/muldiv_func.o $(QEMU-BDIR)/mulacc_func.o $(QEMU-BDIR)/p-ext_func.o 
@@ -34,8 +34,8 @@ machine: $(LDIR)/libci_m.a $(QEMU-LDIR)/libmcx_selector.so
 $(QEMU-LDIR)/libmcx_selector.so: $(qemu_objects) | $(QEMU-LDIR)
 	$(ARX86) -rcs $@ $^
 
-$(QEMU-BDIR)/%.o : $(QEMU-SRC)/%.c | $(QEMU-LDIR)
-	$(CCX86) -c $< -o $@
+# $(QEMU-BDIR)/%.o : $(QEMU-SRC)/%.c | $(QEMU-LDIR)
+# 	$(CCX86) -c $< -o $@
 
 $(QEMU-BDIR)/addsub_func.o : $(ZOO-DIR)/addsub/addsub_func.c | $(QEMU-LDIR)
 	$(CCX86) -c $< -o $@
@@ -71,16 +71,16 @@ $(LDIR):
 
 
 ###########   CX Libraries   ###########
-$(BDIR)/addsub.o: $(ZOO-DIR)/addsub/addsub.c $(ZOO-DIR)/addsub/addsub.h
+$(BDIR)/addsub.o: $(ZOO-DIR)/addsub/addsub.c $(ZOO-DIR)/addsub/addsub.h | $(BDIR)
 	$(CC) -c $< -o $@
 
-$(BDIR)/muldiv.o: $(ZOO-DIR)/muldiv/muldiv.c $(ZOO-DIR)/muldiv/muldiv.h
+$(BDIR)/muldiv.o: $(ZOO-DIR)/muldiv/muldiv.c $(ZOO-DIR)/muldiv/muldiv.h | $(BDIR)
 	$(CC) -c $< -o $@
 
-$(BDIR)/mulacc.o: $(ZOO-DIR)/mulacc/mulacc.c $(ZOO-DIR)/mulacc/mulacc.h
+$(BDIR)/mulacc.o: $(ZOO-DIR)/mulacc/mulacc.c $(ZOO-DIR)/mulacc/mulacc.h | $(BDIR)
 	$(CC) -c $< -o $@
 
-$(BDIR)/p-ext.o: $(ZOO-DIR)/p-ext/p-ext.c $(ZOO-DIR)/p-ext/p-ext.h
+$(BDIR)/p-ext.o: $(ZOO-DIR)/p-ext/p-ext.c $(ZOO-DIR)/p-ext/p-ext.h | $(BDIR)
 	$(CC) -c $< -o $@
 
 
