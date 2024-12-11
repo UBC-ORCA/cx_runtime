@@ -1,0 +1,12 @@
+[submodule "riscv-gnu-toolchain"]
+	path = utils/riscv-gnu-toolchain
+	url = git@github.com:UBC-ORCA/riscv-gnu-toolchain.git
+[submodule "linux"]
+    path = linux_cx
+    url = git@github.com:UBC-ORCA/linux_cx.git
+    branch = cx_table
+[submodule "qemu"]
+    path = qemu_cx
+    url = git@github.com:UBC-ORCA/qemu_cx.git
+    branch = cx_table
+	
