@@ -95,9 +95,9 @@ example: examples/example.c $(LDIR)/libci.a
 
 
 ###########   Running on different emulators   ###########
-qemu: example
-	${RISCV}/riscv-gnu-toolchain/qemu/build/riscv32-softmmu/qemu-system-riscv32 -nographic -machine virt \
-	-kernel ~/Documents/linux_rv32/linux/arch/riscv/boot/Image \
+qemu:
+	./qemu_cx/build/qemu-system-riscv32 -nographic -machine virt \
+	-kernel linux_cx/arch/riscv/boot/Image \
 	-initrd ~/Documents/linux_rv32/initramfs/initramfs.cpio.gz \
 	-append "console=ttyS0"
 
