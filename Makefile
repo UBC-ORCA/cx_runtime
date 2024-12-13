@@ -1,8 +1,8 @@
 .PHONY: clean all temp 
 
 # CC = ${RISCV}/llvm/build-linux/bin/clang
-CC = ${RISCV}riscv32-unknown-linux-gnu-gcc
-AR = ${RISCV}riscv32-unknown-linux-gnu-ar
+CC = ${RISCV}/riscv32-unknown-linux-gnu-gcc
+AR = ${RISCV}/riscv32-unknown-linux-gnu-ar
 
 CCX86 = gcc
 ARX86 = ar
