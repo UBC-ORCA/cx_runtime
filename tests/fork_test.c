@@ -17,10 +17,10 @@
 
 static int a = 3, b = 5, c = 2, result = 0;
 static cx_stctxs_t expected_stctxs = {.sel = {
-                                .cs = CX_DIRTY,
-                                .error = 0,
-                                .initializer = CX_HW_INIT,
-                                .state_size = 1
+                                .dc = CX_DIRTY,
+                                .R = 0,
+                                .state_size = 1,
+                                .version = 1
                               }};
 
 /* 
@@ -425,6 +425,7 @@ void use_prev_opened_in_child() {
 
   cx_sel(cx_sel_C0);
   result = mac(b, b);
+  printf("result: %d\n", result);
   assert (result == 50 );
 
   cx_close(cx_sel_C0);
@@ -685,7 +686,7 @@ int main() {
       use_prev_opened_in_child();
       use_prev_opened_in_parent();
       use_prev_opened_in_parent_and_child();
-      // close_unclosed_cx();
+    //   close_unclosed_cx();
     // }
 
     printf("Context Copy Test Complete\n");

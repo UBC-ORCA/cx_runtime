@@ -5,24 +5,24 @@
 
 static int acc[CX_MULACC_NUM_STATES];
 
-static const cx_stctxs_t initial_status_word = {.sel = {.cs = CX_INITIAL,
-                                                        .initializer = CX_HW_INIT,
+static const cx_stctxs_t initial_status_word = {.sel = {.dc = CX_PRECLEAN,
                                                         .state_size = 1,
                                                         .reserved0 = 0,
-                                                        .error = 0}};
+                                                        .version = 1,
+                                                        .R = 0}};
 
-static const cx_stctxs_t off_status_word = {.sel = {.cs = CX_OFF,
-                                                        .initializer = CX_HW_INIT,
+static const cx_stctxs_t off_status_word = {.sel = {.dc = CX_OFF,
                                                         .state_size = 1,
                                                         .reserved0 = 0,
-                                                        .error = 0}};
+                                                        .version = 1,
+                                                        .R = 0}};
 
 
 static cx_stctxs_t cxu_stctx_status[CX_MULACC_NUM_STATES];
 
 static inline int32_t mac_func(int32_t a, int32_t b, int32_t state_id)
 {
-    cxu_stctx_status[state_id].sel.cs = CX_DIRTY;
+    cxu_stctx_status[state_id].sel.dc = CX_DIRTY;
     acc[state_id] += a * b;
     return acc[state_id];
 }
@@ -44,26 +44,26 @@ static inline int32_t mulacc_read_status_func( __attribute__((unused)) int32_t u
 static inline int32_t mulacc_write_status_func( int32_t value, 
                                                 __attribute__((unused)) int32_t unused0,
                                                 int32_t state_id ) {    
-    uint cx_status = GET_CX_STATUS(value);
+    uint cx_status = GET_CX_DATA_CLEAN(value);
 
     if (cx_status == CX_OFF) {
         cxu_stctx_status[state_id] = off_status_word;
-    } else if (cx_status == CX_INITIAL) {
+    } else if (cx_status == CX_PRECLEAN) {
         // Write initial first, in case state is read. SW will know that CXU is still
         // in the process of resetting.
         cxu_stctx_status[state_id] = initial_status_word;
         // hw update to reset state.
         reset_func(0, 0, state_id);
         // write CX_DIRTY, so OS knows to save state on context switch
-        cxu_stctx_status[state_id].sel.cs = CX_DIRTY;
+        cxu_stctx_status[state_id].sel.dc = CX_DIRTY;
     }
     else if (cx_status == CX_DIRTY)
     {
-        cxu_stctx_status[state_id].sel.cs = CX_DIRTY;
+        cxu_stctx_status[state_id].sel.dc = CX_DIRTY;
     }
     else if (cx_status == CX_CLEAN)
     {
-        cxu_stctx_status[state_id].sel.cs = CX_CLEAN;
+        cxu_stctx_status[state_id].sel.dc = CX_CLEAN;
     }
 
     return 0;

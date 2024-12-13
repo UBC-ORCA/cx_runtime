@@ -16,12 +16,12 @@
 
 
 static int a = 3, b = 5, c = 2;
-// static cx_stctxs_t expected_stctxs = {.sel = {
-//                                 .cs = CX_DIRTY,
-//                                 .error = 0,
-//                                 .initializer = CX_HW_INIT,
-//                                 .state_size = 1
-//                               }};
+static cx_stctxs_t expected_stctxs = {.sel = {
+                                .dc = CX_DIRTY,
+                                .R = 0,
+                                .state_size = 1,
+                                .version = 1
+                              }};
 
 void* cx_mac_thread(void *ptr) {
     int val = *(int *)ptr;

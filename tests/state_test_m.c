@@ -7,6 +7,13 @@
 
 #define CX_SEL_TABLE_NUM_ENTRIES 1024
 
+static cx_stctxs_t expected_stctxs = {.sel = {
+                                .dc = CX_DIRTY,
+                                .R = 0,
+                                .state_size = 1,
+                                .version = 1
+                              }};
+
 void state_test() {
     int a = 3;
     int b = 5;
@@ -26,31 +33,15 @@ void state_test() {
     cx_sel(cx_sel_A0);
 
     uint status = CX_READ_STATUS();
-    uint cs_status = GET_CX_STATUS(status);
-    uint state_size = GET_CX_STATE_SIZE(status);
-    uint error = GET_CX_ERROR(status);
-    uint initializer_cfg = GET_CX_INITIALIZER(status);
-
-    /* Status should always be dirty after either a hw or sw initialization */
-    assert( cs_status == CX_DIRTY );
-    assert( state_size == 1 );  // state size unchanged
-    assert( error == 0 );       // No error
-    assert( initializer_cfg == 0 ); // initializer unchanged
+    
+    assert (status == expected_stctxs.idx);
 
     result = mac(a, b);
     assert( result == 15 );
 
     status = CX_READ_STATUS();
 
-    cs_status = GET_CX_STATUS(status);
-    state_size = GET_CX_STATE_SIZE(status);
-    error = GET_CX_ERROR(status);
-    initializer_cfg = GET_CX_INITIALIZER(status);
-
-    assert( cs_status == CX_DIRTY );
-    assert( state_size == 1 );  // state size unchanged
-    assert( error == 0 );       // No error
-    assert( initializer_cfg == 0 ); // initializer unchanged
+    assert (status == expected_stctxs.idx);
 
     cx_error = cx_error_read();
     assert ( cx_error == 0 );
