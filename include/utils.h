@@ -25,9 +25,6 @@
 #define MAX_CX_ID 255
 #define NUM_CX 4
 
-#define MAX_CXU_ID 1 << CX_ID_BITS
-#define MAX_STATE_ID 1 << STATE_ID_BITS
-
 #define MAX_STATE_SIZE 1024 // number of words in a state
 
 /* cx_selector CSR */
@@ -132,6 +129,10 @@
 #define GET_SHARE_TYPE(cx_share) \
     GET_BITS(cx_share, CX_SHARE_START_INDEX, CX_SHARE_BITS) 
 
+// other
+
+#define MAX_CXU_ID 1 << CX_ID_BITS
+#define MAX_STATE_ID 1 << CX_STATE_ID_BITS
 
 typedef unsigned int uint;
 

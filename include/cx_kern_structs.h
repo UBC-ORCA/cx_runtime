@@ -5,6 +5,8 @@
 #include <linux/list.h>
 #include <linux/types.h>
 #include <linux/queue.h>
+// #include <sys/types.h>
+// #include <unistd.h>
 
 #include "utils.h"
 
@@ -68,5 +70,11 @@ typedef struct {
   queue_t *avail_state_ids;
   cx_state_info_t *state_info;
 } cx_entry_t;
+
+typedef struct opt_entry_t {
+  int idx;
+  struct task_struct *tsk;
+} opt_entry_t;
+
 
 #endif // KERN_STRUCTS_H
