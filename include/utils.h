@@ -23,7 +23,7 @@
 
 #define MAX_CF_IDS 1024
 #define MAX_CX_ID 255
-#define NUM_CX 4
+#define NUM_CX 5
 
 // number of words in a state
 // for space reasons (laziness), this is not the proper size
@@ -84,6 +84,13 @@
 #define CX_CU_START_INDEX 6
 #define CX_CU_BITS 1
 
+/* cx sel user type */
+#define CX_INDEX_START_INDEX 0
+#define CX_INDEX_START_BITS 10
+
+#define CX_INDEX_VALID_INDEX 31
+#define CX_INDEX_VALID_BITS 1
+
 /* cx share type */
 #define CX_SHARE_START_INDEX 0
 #define CX_SHARE_BITS 2
@@ -120,6 +127,14 @@
 
 #define GET_CX_RESET(cx_sel) \
     GET_BITS(cx_sel, CX_RESET_START_INDEX, CX_RESET_BITS)
+
+// ========= cx user selector helpers ===========
+
+#define GET_INDEX(cx_sel) \
+    GET_BITS(cx_sel, CX_INDEX_START_INDEX, CX_INDEX_BITS)
+
+#define GET_INDEX_VALID(cx_sel) \
+    GET_BITS(cx_sel, CX_INDEX_VALID_INDEX, CX_INDEX_VALID_BITS)
 
 // ========= cx status helpers ===========
 
@@ -172,6 +187,15 @@ typedef union {
     } sel;
     int idx;
 } cx_status_t;
+
+typedef union {
+    struct {
+        uint idx       : CX_INDEX_START_BITS;
+        uint reserved  : 21;
+        uint iv        : CX_INDEX_VALID_BITS;
+    } sel;
+        uint idx;
+ } cx_sel_user_t;
 
 enum CX_CS {
     CX_OFF, 

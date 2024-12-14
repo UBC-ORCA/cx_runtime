@@ -225,6 +225,7 @@ void threaded_matmul(int m, int n, int nThreads, cx_sel_t cx_sel_A0, CX_SHARE_T 
 
     for (int i = 0; i < nThreads; i++) {
       cx_sel_t cx_sel_thread = cx_open(CX_GUID_MULACC, CX_SHARE, cx_sel_A0);
+      assert(cx_sel_thread > 0);
       mat_args[i]->cx_sel = cx_sel_thread;
       assert( pthread_create(&tid[i], NULL, mm_worker, (void *)mat_args[i]) == 0 );
     }
