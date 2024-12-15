@@ -14,7 +14,7 @@
 #define CX_IMM_TYPE  CUSTOM1
 #define CX_FLEX_TYPE CUSTOM2
 
-#define CX_INVALID_SELECTOR 0x10000000
+#define CX_INVALID_SELECTOR 0x80000000
 #define CX_LEGACY 0
 #define MCX_VERSION 1
 #define CX_SEL_TABLE_NUM_ENTRIES 1024
@@ -38,11 +38,11 @@
 #define CX_STATE_START_INDEX 16
 #define CX_STATE_ID_BITS 8
 
-#define CX_CXE_START_INDEX 28
-#define CX_CXE_BITS 1
-
-#define CX_VERSION_START_INDEX 29
+#define CX_VERSION_START_INDEX 28
 #define CX_VERSION_ID_BITS 3
+
+#define CX_CXE_START_INDEX 31
+#define CX_CXE_BITS 1
 
 /* cx_context_status_word CSR */
 #define CX_STATUS_START_INDEX 0
@@ -168,8 +168,8 @@ typedef union {
         uint reserved1 : 8;
         uint state_id  : CX_STATE_ID_BITS;
         uint reserved0 : 4;
-        uint cxe       : CX_CXE_BITS;
         uint version   : CX_VERSION_ID_BITS;
+        uint cxe       : CX_CXE_BITS;
     } sel;
         uint idx;
  } cx_selidx_t;
