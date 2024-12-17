@@ -23,7 +23,7 @@
 
 #define MAX_CF_IDS 1024
 #define MAX_CX_ID 255
-#define NUM_CX 5
+#define NUM_CX 6
 
 // number of words in a state
 // for space reasons (laziness), this is not the proper size

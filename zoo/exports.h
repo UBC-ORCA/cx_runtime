@@ -13,9 +13,9 @@
 
 #define CX_ERROR_NUM_FUNCS 0
 
-typedef int32_t (*(*cx_func_stub_t)) (int32_t, int32_t, int32_t);
+typedef int32_t (*(*cx_func_stub_t)) (int32_t, int32_t, cx_selidx_t);
 
-extern int32_t (*cx_func_error[]) (int32_t, int32_t, int32_t);
+extern int32_t (*cx_func_error[]) (int32_t, int32_t, cx_selidx_t);
 
 extern cx_func_stub_t cx_funcs[MAX_CX_ID];
 

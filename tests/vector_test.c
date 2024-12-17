@@ -113,11 +113,16 @@ int basic_test() {
 }
 
 void basic_intra() {
-    int temp = cx_open(CX_GUID_VECTOR, CX_NO_VIRT, -1);
+    int temp0 = cx_open(CX_GUID_VECTOR, CX_NO_VIRT, -1);
+    int temp1 = cx_open(CX_GUID_VECTOR, CX_NO_VIRT, -1);
+    int temp2 = cx_open(CX_GUID_VECTOR, CX_NO_VIRT, -1);
     int selA = cx_open(CX_GUID_VECTOR, CX_INTRA_VIRT, -1);
     int selB = cx_open(CX_GUID_VECTOR, CX_INTRA_VIRT, -1);
     int selC = cx_open(CX_GUID_VECTOR, CX_INTRA_VIRT, -1);
 
+    assert(temp0 != -1);
+    assert(temp1 != -1);
+    assert(temp2 != -1);
     assert(selA != -1);
     assert(selB != -1);
     assert(selC != -1);
@@ -162,7 +167,9 @@ void basic_intra() {
     cx_close(selA);
     cx_close(selB);
     cx_close(selC);
-    cx_close(temp);
+    cx_close(temp0);
+    cx_close(temp1);
+    cx_close(temp2);
 
     cx_sel(CX_LEGACY);
 }
@@ -332,8 +339,8 @@ void virt_threaded_multip() {
 }
 
 int main() {
-    // basic_test();
-    // basic_intra();
+    basic_test();
+    basic_intra();
     basic_inter();
     printf("completed!\n");
     return 0;
