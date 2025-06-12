@@ -1,4 +1,5 @@
 #include <assert.h>
+#include <pthread.h>
 #include <stdio.h>
 #include <stdint.h>
 #include <stdlib.h>
@@ -329,19 +330,63 @@ void basic_full() {
     cx_sel( CX_LEGACY );
 }
 
-void virt_threaded() {
-    
+void inter_2() {
+    pid_t pid = fork();
+    assert(pid >= 0);
+    if (pid == 0) {
+        
+        // We want the parent to execute and be waiting for the child, so that we 
+        // can make sure the contexts are inter-virtualized.
+        sleep(1);
+
+        int selA = cx_open(CX_GUID_VECTOR, CX_INTER_VIRT, -1);
+        int selB = cx_open(CX_GUID_VECTOR, CX_INTER_VIRT, -1);
+        int selC = cx_open(CX_GUID_VECTOR, CX_INTER_VIRT, -1);
+        int selD = cx_open(CX_GUID_VECTOR, CX_INTER_VIRT, -1);
+
+        assert(selA > 0);
+        assert(selB > 0);
+        assert(selC > 0);
+        assert(selD > 0);
+
+        cx_close(selA);
+        cx_close(selB);
+        cx_close(selC);
+        cx_close(selD);
+
+        exit(EXIT_SUCCESS);
+    } else {
+        int selA = cx_open(CX_GUID_VECTOR, CX_INTER_VIRT, -1);
+        int selB = cx_open(CX_GUID_VECTOR, CX_INTER_VIRT, -1);
+        int selC = cx_open(CX_GUID_VECTOR, CX_INTER_VIRT, -1);
+        int selD = cx_open(CX_GUID_VECTOR, CX_INTER_VIRT, -1);
+
+        assert(selA > 0);
+        assert(selB > 0);
+        assert(selC > 0);
+        assert(selD > 0);
+
+        int status;
+        waitpid(pid, &status, 0);
+        assert(status == 0);
+
+        cx_close(selA);
+        cx_close(selB);
+        cx_close(selC);
+        cx_close(selD);
+    }
+    cx_sel( CX_LEGACY );
 }
 
-// Might make this into a Matmul
-void virt_threaded_multip() {
-
+void virt_threaded() {
+    
 }
 
 int main() {
     basic_test();
     basic_intra();
     basic_inter();
+    inter_2();
     printf("completed!\n");
     return 0;
 }

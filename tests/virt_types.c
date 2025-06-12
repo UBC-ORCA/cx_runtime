@@ -8,8 +8,6 @@
 #include "../../../../research/riscv-tools/cx_runtime/zoo/muldiv/muldiv.h"
 
 #include <sys/types.h>
-
-#include <sys/types.h>
 #include <sys/wait.h>
 #include <sys/mman.h>
 
