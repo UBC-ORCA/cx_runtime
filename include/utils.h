@@ -6,6 +6,9 @@
 #define CX_STATUS     0x801 // should be 0x801, was using 0x013
 #define MCX_TABLE     0x145 // should be 0xBC1
 
+#define __CX__         //(FIXME: compiler builtin)
+#define CX_LEGACY 0
+
 #define CUSTOM0 0xb
 #define CUSTOM1 0x2b
 #define CUSTOM2 0x5b
@@ -23,7 +26,7 @@
 
 #define MAX_CF_IDS 1024
 #define MAX_CX_ID 255
-#define NUM_CX 6
+#define NUM_CX 8
 
 // number of words in a state
 // for space reasons (laziness), this is not the proper size

@@ -6,9 +6,6 @@
 
 // ABI
 
-#define __CX__         //(FIXME: compiler builtin)
-#define CX_LEGACY 0
-
 // TYPDEFS
 
 typedef int32_t cx_guid_t;       // global: CX ID, a 128b GUID
@@ -31,16 +28,15 @@ typedef int32_t cxu_sctx_t;      // per state
 
 // API
 
-void       cx_init(void);
-cx_sel_t   cx_open(cx_guid_t cx_guid, cx_share_t cx_share, cx_sel_t cx_sel);
-void       cx_sel(cx_sel_t cx_sel);
-void       cx_close(cx_sel_t cx_sel);
-cx_error_t cx_error_read(void);
-void       cx_error_clear(void);
-void       cx_deselect_and_close(cx_sel_t cx_sel);
+void        cx_init(void);
+cx_sel_t    cx_open(cx_guid_t cx_guid, cx_share_t cx_share, cx_sel_t cx_sel);
+void        cx_close(cx_sel_t cx_sel);
+cx_error_t  cx_error_read(void);
+void        cx_error_clear(void);
+void        cx_deselect_and_close(cx_sel_t cx_sel);
 
-// TEMP
-void cx_context_save();
-void cx_context_restore();
+static void inline cx_sel(cx_sel_t cx_sel) {
+    cx_csr_write(CX_INDEX, cx_sel);
+};
 
 #endif
