@@ -36,8 +36,8 @@ machine: $(LDIR)/libci_m.a $(QEMU-LDIR)/libmcx_selector.so
 $(QEMU-LDIR)/libmcx_selector.so: $(qemu_objects) | $(QEMU-LDIR)
 	$(ARX86) -rcs $@ $^
 
-$(QEMU-BDIR)/%.o : $(QEMU-SRC)/%.c | $(QEMU-LDIR)
-	$(CCX86) -c $< -o $@
+# $(QEMU-BDIR)/%.o : $(QEMU-SRC)/%.c | $(QEMU-LDIR)
+# 	$(CCX86) -c $< -o $@
 
 $(QEMU-BDIR)/addsub_func.o : $(ZOO-DIR)/addsub/addsub_func.c | $(QEMU-LDIR)
 	$(CCX86) -c $< -o $@
@@ -82,6 +82,7 @@ $(LDIR):
 
 
 ###########   CX Libraries   ###########
+
 $(BDIR)/addsub.o: $(ZOO-DIR)/addsub/addsub.c $(ZOO-DIR)/addsub/addsub.h
 	$(CC) $(FLAGS) -c $< -o $@
 
@@ -102,11 +103,6 @@ $(BDIR)/max.o: $(ZOO-DIR)/max/max.c $(ZOO-DIR)/max/max.h
 
 $(BDIR)/nn_acc.o: $(ZOO-DIR)/nn_acc/nn_acc.c $(ZOO-DIR)/nn_acc/nn_acc.h
 	$(CC) $(FLAGS) -c $< -o $@
-
-###########   Parser   ###########
-
-$(BDIR)/parser.o: $(SRC)/parser.c $(IDIR)/parser.h | $(LDIR)
-	$(CC) -c $< -o $@
 
 ###########   Building Executeable   ###########
 example: examples/example.c $(LDIR)/libci.a

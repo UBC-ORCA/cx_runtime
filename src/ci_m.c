@@ -3,7 +3,6 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include <stdlib.h>
-#include <stdio.h>
 
 #include "../include/ci.h"
 #include "../include/utils.h"
@@ -83,7 +82,6 @@ void cx_init() {
     cx_map[2].cx_guid = CX_GUID_MULACC;
     cx_map[3].cx_guid = CX_GUID_PEXT;
 
-
     cx_map[0].num_states = CX_MULDIV_NUM_STATES;
     cx_map[1].num_states = CX_ADDSUB_NUM_STATES;
     cx_map[2].num_states = CX_MULACC_NUM_STATES;
@@ -104,7 +102,9 @@ void cx_sel(int cx_sel) {
    cx_csr_write(MCX_SELECTOR, cx_sel);
 }
 
+
 int32_t cx_open(cx_guid_t cx_guid, cx_share_t cx_share, cx_sel_t user_cx_sel) {
+
     cx_id_t cx_id = -1;
     for (int j = 0; j < NUM_CX; j++) {
         if (cx_map[j].cx_guid == cx_guid) {
