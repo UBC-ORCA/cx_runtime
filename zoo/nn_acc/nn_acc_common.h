@@ -1,0 +1,9 @@
+#ifndef NN_ACC_COMMON_H
+#define NN_ACC_COMMON_H
+
+#define CX_GUID_NN_ACC 888
+#define CX_NN_ACC_NUM_FUNCS 3
+#define CX_NN_ACC_NUM_STATES 2
+#define CX_NUM_NN_ACC_INSTANCES 1
+
+#endif

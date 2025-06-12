@@ -2,10 +2,10 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#include "mulacc_func.h"
+#include "nn_acc_func.h"
 #include "../../include/utils.h"
 
-static int acc[CX_NUM_MULACC_INSTANCES][CX_MULACC_NUM_STATES];
+static int acc[CX_NUM_NN_ACC_INSTANCES][CX_NN_ACC_NUM_STATES];
 
 static const cx_stctxs_t initial_status_word = {.sel = {.dc = CX_PRECLEAN,
                                                         .state_size = 1,
@@ -19,27 +19,21 @@ static const cx_stctxs_t off_status_word = {.sel = {.dc = CX_OFF,
                                                         .version = 1,
                                                         .R = 0}};
 
-static cx_stctxs_t cxu_stctx_status[CX_NUM_MULACC_INSTANCES][CX_MULACC_NUM_STATES];
+static cx_stctxs_t cxu_stctx_status[CX_NUM_NN_ACC_INSTANCES][CX_NN_ACC_NUM_STATES];
 
 static int cxu_id_to_instance_num(int cx_id) {
     switch (cx_id)
     {
-    case 2:
+    case 7:
         return 0;
     default:
-        printf("invalid cx_id in mulacc unit\n");
+        printf("invalid cx_id in nn_acc unit\n");
         exit(1);
     }
     return 0;
 }
 
-static inline int32_t do_nothing(__attribute__((unused)) int32_t a,
-                                 __attribute__((unused)) int32_t b, 
-                                 __attribute__((unused)) cx_selidx_t sys_sel) {
-    return 0;
-}
-
-static inline int32_t mac_func(int32_t a, int32_t b, cx_selidx_t sys_sel)
+static inline int32_t nn_acc_func(int32_t a, int32_t b, cx_selidx_t sys_sel)
 {
     int inst_num = cxu_id_to_instance_num(sys_sel.sel.cx_id);
     int state_id = sys_sel.sel.state_id;
@@ -58,28 +52,20 @@ static inline int32_t reset_func(__attribute__((unused)) int32_t a,
     return 0;
 }
 
-static inline int32_t zero_mac_func(int32_t a, int32_t b, cx_selidx_t sys_sel)
+static inline int32_t relu_func( __attribute__((unused)) int32_t a, 
+                                 __attribute__((unused)) int32_t b, 
+                                 cx_selidx_t sys_sel)
 {
     int inst_num = cxu_id_to_instance_num(sys_sel.sel.cx_id);
     int state_id = sys_sel.sel.state_id;
-    cxu_stctx_status[inst_num][state_id].sel.dc = CX_CLEAN;
-    int res = acc[inst_num][state_id] + a * b;
-    acc[inst_num][state_id] = 0;
-    return res;
+    cxu_stctx_status[inst_num][state_id].sel.dc = CX_DIRTY;
+    if (acc[inst_num][state_id] < 0) {
+        acc[inst_num][state_id] = 0;
+    }
+    return acc[inst_num][state_id];
 }
 
-static inline int32_t read_acc_func( __attribute__((unused)) int32_t unused0, 
-                                     __attribute__((unused)) int32_t unused1, 
-                                              cx_selidx_t sys_sel ) {
-    int inst_num = cxu_id_to_instance_num(sys_sel.sel.cx_id);
-    int state_id = sys_sel.sel.state_id;
-    cxu_stctx_status[inst_num][state_id].sel.dc = CX_CLEAN;
-    int res = acc[inst_num][state_id];
-    acc[inst_num][state_id] = 0;
-    return res;
-}
-
-static inline int32_t mulacc_read_status_func( __attribute__((unused)) int32_t unused0, 
+static inline int32_t nn_acc_read_status_func( __attribute__((unused)) int32_t unused0, 
                                                __attribute__((unused)) int32_t unused1, 
                                                cx_selidx_t sys_sel ) {
     
@@ -88,9 +74,9 @@ static inline int32_t mulacc_read_status_func( __attribute__((unused)) int32_t u
     return cxu_stctx_status[inst_num][state_id].idx;
 };
 
-static inline int32_t mulacc_write_status_func( int32_t value, 
+static inline int32_t nn_acc_write_status_func( int32_t value, 
                                                 __attribute__((unused)) int32_t unused0,
-                                                cx_selidx_t sys_sel ) {    
+                                                cx_selidx_t sys_sel ) {
     uint cx_status = GET_CX_DATA_CLEAN(value);
     int inst_num = cxu_id_to_instance_num(sys_sel.sel.cx_id);
     int state_id = sys_sel.sel.state_id;
@@ -117,7 +103,7 @@ static inline int32_t mulacc_write_status_func( int32_t value,
     return 0;
 };
 
-static inline int32_t mulacc_read_state_func( __attribute__((unused)) int32_t unused0, 
+static inline int32_t nn_acc_read_state_func( __attribute__((unused)) int32_t unused0, 
                                               int32_t index, 
                                               cx_selidx_t sys_sel ) {
     int inst_num = cxu_id_to_instance_num(sys_sel.sel.cx_id);
@@ -131,7 +117,7 @@ static inline int32_t mulacc_read_state_func( __attribute__((unused)) int32_t un
     };
 }
 
-static inline int32_t mulacc_write_state_func( int32_t index, 
+static inline int32_t nn_acc_write_state_func( int32_t index, 
                                                int32_t value, 
                                                cx_selidx_t sys_sel ) {
     int inst_num = cxu_id_to_instance_num(sys_sel.sel.cx_id);
@@ -145,30 +131,28 @@ static inline int32_t mulacc_write_state_func( int32_t index,
     };
 };
 
-int32_t (*cx_func_mulacc[MAX_CF_IDS]) (int32_t, int32_t, cx_selidx_t) = {
-    mac_func,
+int32_t (*cx_func_nn_acc[MAX_CF_IDS]) (int32_t, int32_t, cx_selidx_t) = {
+    nn_acc_func,
     reset_func,
-    do_nothing,
-    zero_mac_func,
-    read_acc_func
+    relu_func
 };
 
 // TODO: This should be moved to another file
 static int32_t cx_func_undefined (int32_t, int32_t, cx_selidx_t) { return -1; }
 
-void init_cx_func_mulacc() {
-    for (int i = CX_MULACC_NUM_FUNCS; i < MAX_CF_IDS - 4; i++) {
-        cx_func_mulacc[i] = cx_func_undefined;
+void init_cx_func_nn_acc() {
+    for (int i = CX_NN_ACC_NUM_FUNCS; i < MAX_CF_IDS - 4; i++) {
+        cx_func_nn_acc[i] = cx_func_undefined;
     }
 
-    for (int j = 0; j < CX_NUM_MULACC_INSTANCES; j++) {
-        for (int i = 0; i < CX_MULACC_NUM_STATES; i++) {
+    for (int j = 0; j < CX_NUM_NN_ACC_INSTANCES; j++) {
+        for (int i = 0; i < CX_NN_ACC_NUM_STATES; i++) {
             cxu_stctx_status[j][i] = off_status_word;
         }
     }
 
-    cx_func_mulacc[1020] = mulacc_write_state_func;
-    cx_func_mulacc[1021] = mulacc_read_state_func;
-    cx_func_mulacc[1022] = mulacc_write_status_func;
-    cx_func_mulacc[1023] = mulacc_read_status_func;
+    cx_func_nn_acc[1020] = nn_acc_write_state_func;
+    cx_func_nn_acc[1021] = nn_acc_read_state_func;
+    cx_func_nn_acc[1022] = nn_acc_write_status_func;
+    cx_func_nn_acc[1023] = nn_acc_read_status_func;
 }

@@ -19,13 +19,10 @@
 #define int i32
 #define uint u32
 
-#define GET_BITS(reg, start_bit, n) \
-    ((reg >> start_bit) & (((1 << n) - 1) ))
-
 #define GET_BITS_U(reg, start_bit, n) \
     ((uint)GET_BITS(reg, start_bit, n))
 
-static inline i32 add16_func(i32 a, i32 b, int32_t state_id)
+static inline i32 add16_func(i32 a, i32 b, cx_selidx_t sys_sel)
 {
     uint result = 0, mask = 0xFFFF;
     i16 sum, rs1_h, rs2_h;
@@ -39,7 +36,7 @@ static inline i32 add16_func(i32 a, i32 b, int32_t state_id)
     return result;
 }
 
-static inline i32 sra16_func(i32 a, i32 sa, int32_t state_id)
+static inline i32 sra16_func(i32 a, i32 sa, cx_selidx_t sys_sel)
 {
     uint result = 0, mask = 0xFFFF;
     i16 rs1_h;
@@ -53,7 +50,7 @@ static inline i32 sra16_func(i32 a, i32 sa, int32_t state_id)
     return result;
 }
 
-static inline i32 smul16_func(i32 a, i32 b, int32_t state_id)
+static inline i32 smul16_func(i32 a, i32 b, cx_selidx_t sys_sel)
 {
     uint result = 0, mask = 0xFFFF;
     i16 sum, rs1_h, rs2_h;
@@ -67,7 +64,7 @@ static inline i32 smul16_func(i32 a, i32 b, int32_t state_id)
     return result;
 }
 
-static inline i32 add8_func(i32 a, i32 b, int32_t state_id)
+static inline i32 add8_func(i32 a, i32 b, cx_selidx_t sys_sel)
 {
     uint result = 0, mask = 0xFF;
     i8 sum, rs1_h, rs2_h;
@@ -81,7 +78,7 @@ static inline i32 add8_func(i32 a, i32 b, int32_t state_id)
     return result;
 }
 
-static inline i32 sra8_func(i32 a, i32 sa, int32_t state_id)
+static inline i32 sra8_func(i32 a, i32 sa, cx_selidx_t sys_sel)
 {
     uint result = 0, mask = 0xFF;
     int sum;
@@ -96,7 +93,7 @@ static inline i32 sra8_func(i32 a, i32 sa, int32_t state_id)
     return result;
 }
 
-static inline i32 smul8_func(i32 a, i32 b, int32_t state_id)
+static inline i32 smul8_func(i32 a, i32 b, cx_selidx_t sys_sel)
 {
     uint result = 0, mask = 0xFF;
     i8 sum, rs1_h, rs2_h;
@@ -110,7 +107,7 @@ static inline i32 smul8_func(i32 a, i32 b, int32_t state_id)
     return result;
 }
 
-int32_t (*cx_func_pext[]) (int32_t, int32_t, int32_t) = {
+int32_t (*cx_func_pext[]) (int32_t, int32_t, cx_selidx_t) = {
     add16_func,
     sra16_func,
     smul16_func,

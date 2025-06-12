@@ -54,7 +54,6 @@ void cx_open_across_threads() {
     }
 
     int res = CX_READ_STATE(0);
-    printf("result: %d\n", res);
     assert( res == N * a * a);
     cx_close(cx_sel_A0);
 

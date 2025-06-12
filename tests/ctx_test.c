@@ -17,12 +17,12 @@ void context_save_restore_test() {
   int32_t state_result;
   cx_sel_t cx_index;
 
-  cx_stctxs_t expected_stctxs = {.sel = {
-                                  .cs = CX_DIRTY,
-                                  .error = 0,
-                                  .initializer = CX_HW_INIT,
-                                  .state_size = 1
-                                }};
+  static cx_stctxs_t expected_stctxs = {.sel = {
+                                .dc = CX_DIRTY,
+                                .R = 0,
+                                .state_size = 1,
+                                .version = 1
+                              }};
 
   int cx_sel_C0 = cx_open(CX_GUID_MULACC, share_C, -1);
   int cx_sel_C1 = cx_open(CX_GUID_MULACC, share_C, -1);
@@ -85,7 +85,7 @@ void context_save_restore_test() {
 
   // checking state status was restored, and set to clean
   cx_status = CX_READ_STATUS();
-  expected_stctxs.sel.cs = CX_CLEAN;
+  expected_stctxs.sel.dc = CX_CLEAN;
   assert( cx_status == expected_stctxs.idx );
 
   cx_error_clear();

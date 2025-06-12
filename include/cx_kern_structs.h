@@ -5,6 +5,8 @@
 #include <linux/list.h>
 #include <linux/types.h>
 #include <linux/queue.h>
+// #include <sys/types.h>
+// #include <unistd.h>
 
 #include "utils.h"
 
@@ -38,7 +40,7 @@ typedef struct cx_state_data_t {
 typedef struct cx_state_info_t {
     CX_SHARE_T share;
     // when the counter is 0, we can set the CX_SHARE_T. Until it becomes
-    // 0'ed again, we must resepect that all newly opened virtual
+    // 0'ed again, we must respect that all newly opened virtual
     // contexts are of the same share type, or else the cx_open will fail.
     s32 pid; // Needed for priority 2 and 3 virtualization types
     s32 counter;
@@ -68,5 +70,11 @@ typedef struct {
   queue_t *avail_state_ids;
   cx_state_info_t *state_info;
 } cx_entry_t;
+
+typedef struct opt_entry_t {
+  int idx;
+  struct task_struct *tsk;
+} opt_entry_t;
+
 
 #endif // KERN_STRUCTS_H

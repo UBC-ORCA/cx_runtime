@@ -1,3 +1,3 @@
 #include <stdint.h>
 
-#include "mulacc.h"
+#include "nn_acc.h"
