@@ -7,18 +7,8 @@ export LD_LIBRARY_PATH=$CX_ROOT/build-qemu/lib
 
 pushd qemu_cx
 
-if [ $? -ne 0 ]; then
-	echo "Couldn't find qemu_cx directory."
-    exit 1
-fi
-
 mkdir build
 pushd build
-
-if [ $? -ne 0 ]; then
-	echo "Couldn't find new build directory."
-    exit 1
-fi
 
 ../configure --target-list=riscv32-softmmu
 
