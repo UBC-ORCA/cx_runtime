@@ -3,10 +3,6 @@
 
 #include "../include/ci.h"
 
-void cx_sel(int cx_index) {
-  cx_csr_write(CX_INDEX, cx_index);
-}
-
 int32_t cx_open(cx_guid_t cx_guid, cx_share_t cx_share, cx_sel_t cx_sel) {
 
   register long cx_index asm("a0");
@@ -47,24 +43,4 @@ void cx_error_clear() {
 void cx_deselect_and_close(cx_sel_t cx_sel)
 {
     return;
-}
-
-void cx_context_save() {
-  register long cx_index asm("a0");
-  register long syscall_id asm("a7") = 465; // cx_context_save
-  asm volatile ("ecall  # 0=%0"
-    : 
-    : "r"(syscall_id)
-    :
-  );
-}
-
-void cx_context_restore() {
-  register long cx_index asm("a0");
-  register long syscall_id asm("a7") = 466; // cx_context_restore
-  asm volatile ("ecall  # 0=%0"
-    : 
-    : "r"(syscall_id)
-    :
-  );
 }
