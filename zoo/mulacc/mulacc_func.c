@@ -33,6 +33,12 @@ static int cxu_id_to_instance_num(int cx_id) {
     return 0;
 }
 
+static inline int32_t do_nothing(__attribute__((unused)) int32_t a,
+                                 __attribute__((unused)) int32_t b, 
+                                 __attribute__((unused)) cx_selidx_t sys_sel) {
+    return 0;
+}
+
 static inline int32_t mac_func(int32_t a, int32_t b, cx_selidx_t sys_sel)
 {
     int inst_num = cxu_id_to_instance_num(sys_sel.sel.cx_id);
@@ -50,6 +56,27 @@ static inline int32_t reset_func(__attribute__((unused)) int32_t a,
     int state_id = sys_sel.sel.state_id;
     acc[inst_num][state_id] = 0;
     return 0;
+}
+
+static inline int32_t zero_mac_func(int32_t a, int32_t b, cx_selidx_t sys_sel)
+{
+    int inst_num = cxu_id_to_instance_num(sys_sel.sel.cx_id);
+    int state_id = sys_sel.sel.state_id;
+    cxu_stctx_status[inst_num][state_id].sel.dc = CX_CLEAN;
+    int res = acc[inst_num][state_id] + a * b;
+    acc[inst_num][state_id] = 0;
+    return res;
+}
+
+static inline int32_t read_acc_func( __attribute__((unused)) int32_t unused0, 
+                                     __attribute__((unused)) int32_t unused1, 
+                                              cx_selidx_t sys_sel ) {
+    int inst_num = cxu_id_to_instance_num(sys_sel.sel.cx_id);
+    int state_id = sys_sel.sel.state_id;
+    cxu_stctx_status[inst_num][state_id].sel.dc = CX_CLEAN;
+    int res = acc[inst_num][state_id];
+    acc[inst_num][state_id] = 0;
+    return res;
 }
 
 static inline int32_t mulacc_read_status_func( __attribute__((unused)) int32_t unused0, 
@@ -120,7 +147,10 @@ static inline int32_t mulacc_write_state_func( int32_t index,
 
 int32_t (*cx_func_mulacc[MAX_CF_IDS]) (int32_t, int32_t, cx_selidx_t) = {
     mac_func,
-    reset_func
+    reset_func,
+    do_nothing,
+    zero_mac_func,
+    read_acc_func
 };
 
 // TODO: This should be moved to another file
